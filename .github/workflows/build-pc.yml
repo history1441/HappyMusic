@@ -46,13 +46,18 @@ jobs:
           cache: npm
           cache-dependency-path: desktop/package-lock.json
 
-      - name: Setup MSVC dev environment(仅 MSVC target 需要,GNU target 跳过)
-        if: matrix.platform == 'windows-latest' && endsWith(matrix.target, '-msvc')
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
+      - name: Install Rust(GNU host for Windows,规避 MSVC link.exe 缺失)
+        if: matrix.platform == 'windows-latest'
+        shell: bash
+        run: |
+          # Windows 用 GNU host toolchain(不用 MSVC),build script 也用 GNU 编译
+          rustup set default-host x86_64-pc-windows-gnu
+          rustup toolchain install stable-x86_64-pc-windows-gnu --profile minimal
+          rustup default stable-x86_64-pc-windows-gnu
+          rustc --version --verbose
 
-      - name: Install Rust stable
+      - name: Install Rust stable(macOS / Linux)
+        if: matrix.platform != 'windows-latest'
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
