@@ -2,6 +2,7 @@ use reqwest::Client;
 use std::fs::File;
 use std::io::{self, Read, Write};
 use tauri::State;
+use futures::StreamExt;
 
 #[derive(Clone)]
 pub struct DownloadState {
