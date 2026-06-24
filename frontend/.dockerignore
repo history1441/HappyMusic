@@ -1,2 +1,40 @@
+# 依赖与构建产物
 node_modules/
-.env*
+dist/
+.vite/
+*.tsbuildinfo
+
+# 环境与密钥
+.env
+.env.*
+!.env.example
+
+# 版本控制
+.git/
+.gitignore
+.gitattributes
+
+# 测试与文档
+tests/
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+*.md
+docs/
+
+# 开发工具
+.vscode/
+.idea/
+.claude/
+.eslintcache
+*.swp
+
+# 构建文件本身
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# 操作系统
+.DS_Store
+Thumbs.db
