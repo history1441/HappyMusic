@@ -21,7 +21,7 @@ impl DownloadState {
 }
 
 #[tauri::command]
-pub async fn download_file(url: String, path: String, state: DownloadState) -> Result<u64, String> {
+pub async fn download_file(url: String, path: String, state: State<'_, DownloadState>) -> Result<u64, String> {
     // Follow redirects manually to handle 302
     let resp = state.client.get(&url).send().await.map_err(|e| e.to_string())?;
 
