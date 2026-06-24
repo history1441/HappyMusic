@@ -1,0 +1,100 @@
+name: Build PC Installers (Tauri)
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+            label: windows
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+            label: macos-arm64
+          - platform: macos-latest
+            target: x86_64-apple-darwin
+            label: macos-x64
+          - platform: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            label: linux
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: desktop
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libgtk-3-dev \
+            libsoup-3.0-dev \
+            libjavascriptcoregtk-4.1-dev
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: 'PC ${{ github.ref_name }}'
+          releaseBody: 'HappyMusic 桌面端安装包 ${{ github.ref_name }}'
+          releaseDraft: true
+          prerelease: false
+          args: --target ${{ matrix.target }}
+
+      - name: Upload artifacts
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-artifact@v4
+        with:
+          name: tauri-${{ matrix.label }}
+          path: |
+            desktop/src-tauri/target/**/release/bundle/**/*.msi
+            desktop/src-tauri/target/**/release/bundle/**/*.exe
+            desktop/src-tauri/target/**/release/bundle/**/*.dmg
+            desktop/src-tauri/target/**/release/bundle/**/*.app
+            desktop/src-tauri/target/**/release/bundle/**/*.deb
+            desktop/src-tauri/target/**/release/bundle/**/*.AppImage
+          if-no-files-found: ignore
+          retention-days: 30
