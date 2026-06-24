@@ -1,4 +1,3 @@
-import { getApiUrl } from './api'
 import { getCachedAccessToken } from './api'
 
 let ws: WebSocket | null = null
@@ -73,6 +72,7 @@ export function sendState(opts?: {
   progress?: number
   volume?: number
   play_mode?: string
+  timestamp?: number
 }) {
   if (!ws || ws.readyState !== WebSocket.OPEN) return
 

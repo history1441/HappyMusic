@@ -54,7 +54,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ steps.repo.outputs.name }}:buildcache
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ steps.repo.outputs.name }}:buildcache,ignore-error=true
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ steps.repo.outputs.name }}:buildcache,mode=max
 
   build-frontend:
@@ -97,5 +97,5 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ steps.repo.outputs.name }}:buildcache
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ steps.repo.outputs.name }}:buildcache,ignore-error=true
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ steps.repo.outputs.name }}:buildcache,mode=max

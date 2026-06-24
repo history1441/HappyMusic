@@ -35,8 +35,8 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build (vite,跳过 tsc 严格检查)
-        run: npx vite build
+      - name: Type check + Build
+        run: npm run build
 
       - name: Package dist
         run: |

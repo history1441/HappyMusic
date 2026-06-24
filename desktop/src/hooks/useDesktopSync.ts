@@ -9,19 +9,15 @@ export function useDesktopSync() {
       switch (msg.action) {
         case 'play':
         case 'resume':
-          store.resume()
-          break
         case 'pause':
-          store.pause()
+        case 'toggle':
+          store.togglePlay()
           break
         case 'next':
           store.next()
           break
         case 'prev':
           store.prev()
-          break
-        case 'toggle':
-          store.togglePlay()
           break
         case 'volume':
           if (msg.params?.value !== undefined) store.setVolume(msg.params.value)

@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { useIsMobile } from '../hooks/useBreakpoint'
 import {
   saveLocalFile, getLocalSongs, deleteLocalSong, deleteLocalSongs, getLocalSongBlob,
-  updateLocalSongMeta, extractAudioMeta,
+  extractAudioMeta,
   createLocalPlaylist, getLocalPlaylists, deleteLocalPlaylist, updateLocalPlaylist,
   addSongToLocalPlaylist, removeSongFromLocalPlaylist, getLocalPlaylistWithSongs,
   type LocalSong, type LocalPlaylist,
@@ -11,8 +11,8 @@ import { usePlayerStore } from '../stores/playerStore'
 import type { Song } from '../types'
 import {
   FolderOpen, Trash2, Play, Music2, Upload, HardDrive,
-  Search, SortAsc, CheckSquare, Square, X, Plus,
-  ListMusic, Heart, ChevronLeft, Edit3, Share2,
+  Search, CheckSquare, Square, X, Plus,
+  ListMusic, Edit3,
 } from 'lucide-react'
 
 const ACCEPT = '.mp3,.flac,.wav,.ogg,.aac,.m4a,.wma'
@@ -114,7 +114,7 @@ export default function LocalFiles() {
   }
 
   const playAllLocal = async (songs: LocalSong[]) => {
-    const playable = songs.filter(s => true)
+    const playable = songs.filter(() => true)
     if (playable.length === 0) return
     const songList: Song[] = []
     for (const lf of playable) {
@@ -347,7 +347,7 @@ export default function LocalFiles() {
                   </button>
                 </div>
               )}
-              {filteredFiles.map((lf, idx) => {
+              {filteredFiles.map((lf) => {
                 const isSelected = selected.has(lf.id)
                 return (
                   <div key={lf.id}

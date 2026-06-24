@@ -6,7 +6,7 @@ import { cn } from '../utils/cn'
 import api from '@common/services/api'
 import type { Song } from '@common/types'
 import { invoke } from '@tauri-apps/api/core'
-import { dir, BaseDirectory } from '@tauri-apps/plugin-fs'
+import { appDataDir } from '@tauri-apps/api/path'
 
 interface DownloadTask {
   id: string
@@ -44,7 +44,7 @@ export default function DownloadManagerScreen() {
       if (!url) throw new Error('无可下载链接')
 
       // Get download directory
-      const downloadDir = await dir({ type: BaseDirectory.AppData })
+      const downloadDir = await appDataDir()
       const safeName = song.song_name.replace(/[\\/:*?"<>|]/g, '_').substring(0, 80)
       const fileName = `${safeName}_${song.source}_${song.song_identifier}.${song.ext || 'mp3'}`
       const filePath = `${downloadDir}\\${fileName}`

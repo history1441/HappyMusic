@@ -2,7 +2,7 @@
  * Platform adapter interface — each platform (mobile/desktop) implements this.
  * Injected at app startup via setPlatformAdapter().
  */
-import type { Song, PlayMode } from '../types'
+import type { Song } from '../types'
 
 export interface StorageAdapter {
   getItem(key: string): Promise<string | null>

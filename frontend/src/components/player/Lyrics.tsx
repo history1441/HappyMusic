@@ -119,7 +119,7 @@ export default function Lyrics({ lyric, currentTime, onSeek, onBack }: Props) {
     ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
   }, [lines.length, currentTime])
 
-  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+  const handlePointerMove = useCallback((_e: React.PointerEvent) => {
     if (!isDragging.current || !containerRef.current || lines.length === 0) return
     const container = containerRef.current
     const rect = container.getBoundingClientRect()

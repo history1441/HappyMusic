@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import api from '../../services/api'
-import { Smartphone, Monitor, Apple, Download, Upload, Trash2, CheckCircle, Globe, Eye, EyeOff, X, RefreshCw, History, Package } from 'lucide-react'
+import { Smartphone, Monitor, Apple, Download, Upload, Trash2, CheckCircle, Globe, Eye, EyeOff, RefreshCw, History, Package } from 'lucide-react'
 
 interface Release {
   id: number

@@ -5,7 +5,7 @@ import { usePlayerStore } from '../stores/playerStore'
 import type { Playlist, Song } from '../types'
 import {
   Plus, Heart, ListMusic, Trash2, Share2,
-  Play, Music2, X, ChevronRight, Edit3, Check, Pencil,
+  Play, Music2, X, ChevronRight, Edit3, Check,
 } from 'lucide-react'
 
 export default function Playlists() {

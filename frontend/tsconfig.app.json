@@ -4,8 +4,13 @@
     "target": "es2023",
     "lib": ["ES2023", "DOM"],
     "module": "esnext",
-    "types": ["vite/client"],
+    "types": ["vite/client", "node"],
     "skipLibCheck": true,
+
+    /* Path alias(TS 5.0+ paths 无需 baseUrl,相对 tsconfig 解析) */
+    "paths": {
+      "@common/*": ["../common/src/*"]
+    },
 
     /* Bundler mode */
     "moduleResolution": "bundler",

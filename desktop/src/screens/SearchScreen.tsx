@@ -171,7 +171,6 @@ export default function SearchScreen() {
     }
   }
 
-  const resultsRef = useRef<Song[]>([])
   const handlePlay = (song: Song) => {
     playSong(song, resultsRef.current)
   }

@@ -50,7 +50,7 @@ export default function AIRecommend() {
       // Try to match each recommendation with actual songs (max 3 concurrent)
       const matched = await promisePool(
         (data.recommendations || []).slice(0, 5),
-        async (rec) => {
+        async (rec: { song: string; artist: string }) => {
           try {
             const { data: searchData } = await api.post('/search', {
               keyword: `${rec.song} ${rec.artist}`,
