@@ -1,4 +1,4 @@
-name: Build & Release APK/IPA
+name: Build & Release APK
 
 on:
   push:
@@ -114,68 +114,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: mobile/artifacts/*.apk
-          name: Release ${{ github.ref_name }}
-          generate_release_notes: true
-          draft: true
-
-  build-ios:
-    name: Build iOS IPA (unsigned)
-    runs-on: macos-latest
-    timeout-minutes: 45
-    continue-on-error: true  # iOS 构建可能因签名问题失败,不阻塞 Android
-    defaults:
-      run:
-        working-directory: mobile
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: mobile/package-lock.json
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Expo prebuild (iOS)
-        run: npx expo prebuild --platform ios --clean
-
-      - name: Install CocoaPods
-        run: |
-          cd ios
-          pod install
-
-      - name: Build IPA (unsigned)
-        run: |
-          cd ios
-          # 未签名构建:导出未签名的 IPA,用户后续用 AltStore/Sideloadly 自行签名
-          xcodebuild -workspace HappyMusic.xcworkspace \
-            -scheme HappyMusic \
-            -configuration Release \
-            -archivePath build/HappyMusic.xcarchive \
-            -destination "generic/platform=iOS" \
-            -sdk iphoneos \
-            archive CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
-
-          mkdir -p build/Payload
-          cp -r build/HappyMusic.xcarchive/Products/Applications/HappyMusic.app build/Payload/
-          cd build && zip -qr HappyMusic-${{ github.ref_name || 'dev' }}-ios-unsigned.ipa Payload
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-ipa
-          path: mobile/ios/build/*.ipa
-
-      - name: Upload to Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: mobile/ios/build/*.ipa
           name: Release ${{ github.ref_name }}
           generate_release_notes: true
           draft: true
