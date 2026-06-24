@@ -89,15 +89,30 @@ MYSQL_PASSWORD=your_secure_mysql_pass
 REDIS_PASSWORD=your_secure_redis_pass
 MYSQL_PORT=3306
 REDIS_PORT=6379
+
+# MinIO 对象存储(APK 发布 / 数据库备份等共享文件)
+MINIO_ROOT_USER=minioadmin
+MINIO_ROOT_PASSWORD=your_secure_minio_password_at_least_12_chars
+MINIO_PORT=9000
+MINIO_CONSOLE_PORT=9001
 EOF
 
 # 启动 MySQL + Redis
 docker compose -f docker-compose.infrastructure.yml up -d
 
+# 启动 MinIO 对象存储(+ minio-init 自动创建 bucket)
+docker compose -f docker-compose.minio.yml up -d
+
 # 验证
 docker compose -f docker-compose.infrastructure.yml ps
+docker compose -f docker-compose.minio.yml ps
 mysql -h 10.0.0.100 -u happymusic -p -e "SELECT 1"
 redis-cli -h 10.0.0.100 -a your_secure_redis_pass ping
+curl -sf http://10.0.0.100:9000/minio/health/live && echo "MinIO OK"
+
+# (可选)SSH 隧道访问 MinIO 控制台(避免公网暴露)
+# ssh -L 9001:localhost:9001 root@10.0.0.100
+# 然后浏览器访问 http://localhost:9001
 ```
 
 ### 步骤2：部署后端服务器（10.0.0.101, 10.0.0.102, ...）
@@ -126,6 +141,15 @@ REDIS_HOST=10.0.0.100
 REDIS_PORT=6379
 REDIS_PASSWORD=your_secure_redis_pass
 
+# MinIO 对象存储(连接基础设施服务器上的 MinIO)
+MINIO_ENDPOINT=10.0.0.100:9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=your_secure_minio_password_at_least_12_chars
+MINIO_SECURE=false
+MINIO_BUCKET_BUILDS=happymusic-builds
+MINIO_BUCKET_BACKUPS=happymusic-backups
+MINIO_BUCKET_PUBLIC=happymusic-public
+
 # JWT（所有服务器必须相同！）
 JWT_SECRET_KEY=your_jwt_secret_key_change_this
 JWT_ALGORITHM=HS256
@@ -135,6 +159,9 @@ AI_PROVIDER=openai
 AI_BASE_URL=https://api.openai.com
 AI_API_KEY=sk-your-key
 AI_MODEL=gpt-3.5-turbo
+
+# CORS 白名单(生产环境必须配置)
+ALLOWED_ORIGINS=https://music.example.com,https://admin.music.example.com
 
 # 调试
 HAPPYMUSIC_DEBUG=false
@@ -314,3 +341,155 @@ openssl rand -base64 32
 # 生成 JWT 密钥
 openssl rand -hex 32
 ```
+
+---
+
+## 七、对象存储（MinIO）
+
+HappyMusic 使用 MinIO（S3 兼容对象存储)保存需要跨实例共享的文件,彻底解决负载均衡下多后端实例的 404 问题。
+
+### 为什么要对象存储?
+
+| 场景 | 本地存储的问题 | MinIO 解决 |
+|---|---|---|
+| 管理员上传 APK | 文件存在 backend-1 本地,用户从 backend-2 下载 → 404 | 所有实例共享 MinIO |
+| 数据库备份 | 备份在 backend-1 本地,容器重启后丢失 | 持久化 + 跨实例访问 |
+| 移动端 IP 变化 | ip_hash 失效,路由到不同 backend → 404 | 文件源统一 |
+
+### Bucket 设计
+
+| Bucket | 访问策略 | 用途 |
+|---|---|---|
+| `happymusic-builds` | **公开读** | APK / 桌面端安装包发布 |
+| `happymusic-backups` | **私有** | 数据库备份(仅管理员 API) |
+| `happymusic-public` | **公开读** | 通用公开文件 |
+
+Bucket 在 MinIO 首次启动时由 `minio-init` 容器自动创建并设置策略,无需手动操作。
+
+### 3 种部署模式
+
+#### 模式 A：单机一体化（开发/小规模生产）
+
+直接用根目录的 `docker-compose.yml`,MinIO 内置,零配置:
+
+```bash
+cd /opt/happymusic
+cp .env.dist .env  # 编辑密码
+docker compose up -d
+```
+
+MinIO 与 MySQL/Redis/backend 全部在同一 compose,通过 Docker 内网通信。
+
+#### 模式 B：MinIO 独立部署（分布式推荐）
+
+**步骤 1**:在基础设施服务器(10.0.0.100)启动 MinIO:
+
+```bash
+cd /opt/happymusic/deploy
+docker compose -f docker-compose.minio.yml up -d
+```
+
+**步骤 2**:在后端服务器的 `.env` 配置远程 MinIO:
+
+```bash
+MINIO_ENDPOINT=10.0.0.100:9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=your_secure_minio_password
+```
+
+**步骤 3**:在前端服务器的 nginx 配置代理(已在 `frontend/nginx.conf` 预置):
+
+```nginx
+# MinIO 文件下载代理
+location /files/ {
+    proxy_pass http://10.0.0.100:9000/;
+    # ... 其他 proxy_set_header
+}
+
+# MinIO 管理控制台代理(可选)
+location /minio-console/ {
+    proxy_pass http://10.0.0.100:9001/;
+    # ...
+}
+```
+
+> **注意**:分布式部署时,`frontend/nginx.conf` 中的 `proxy_pass` 需要从 `http://minio:9000/` 改为实际的 MinIO 服务器地址 `http://10.0.0.100:9000/`。
+
+#### 模式 C：MinIO 与 MySQL/Redis 同机
+
+将 `docker-compose.minio.yml` 的内容合并到 `docker-compose.infrastructure.yml`,一起启动。适合基础设施服务器资源充足的场景。
+
+### 访问方式
+
+#### 公开文件下载(无需 auth)
+
+通过前端 nginx `/files/` 代理:
+
+```bash
+# 下载 APK(用户端)
+curl -O https://music.example.com/files/happymusic-builds/HappyMusic-v1.9.0-android.apk
+
+# 浏览器直接访问
+https://music.example.com/files/happymusic-builds/HappyMusic-v1.9.0-android.apk
+```
+
+#### 私有文件下载(需管理员 auth)
+
+通过后端 API 代理:
+
+```bash
+# 下载数据库备份(管理员)
+curl -H "Authorization: Bearer <admin_token>" \
+  https://music.example.com/api/admin/database/download/happymusic_20260624_120000.sql.gz
+```
+
+#### MinIO 管理控制台
+
+通过前端 nginx `/minio-console/` 代理访问,或 SSH 隧道:
+
+```bash
+# SSH 隧道(生产推荐,避免公网暴露)
+ssh -L 9001:localhost:9001 root@10.0.0.100
+# 浏览器访问 http://localhost:9001
+```
+
+登录用户名/密码来自 `.env` 的 `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD`。
+
+### 常用运维命令
+
+```bash
+# 进入 deploy 目录
+cd /opt/happymusic/deploy
+
+# 查看 MinIO 状态
+docker compose -f docker-compose.minio.yml ps
+
+# 查看 MinIO 日志
+docker compose -f docker-compose.minio.yml logs -f minio
+
+# 重启 MinIO
+docker compose -f docker-compose.minio.yml restart
+
+# 手动创建/检查 bucket
+docker run --rm --network happymusic-net minio/mc:latest \
+  sh -c "
+  mc alias set local http://minio:9000 minioadmin your_secure_password &&
+  mc ls local/ &&
+  mc anonymous set download local/happymusic-builds
+  "
+
+# 备份 MinIO 数据(到本地)
+docker run --rm -v $(pwd)/minio-backup:/backup -v minio_data:/data alpine \
+  tar czf /backup/minio-$(date +%Y%m%d).tar.gz /data
+```
+
+### 故障排查
+
+| 问题 | 排查方法 |
+|---|---|
+| 上传 APK 报错 500 | 检查 backend 能否连接 MinIO:`docker exec happymusic-backend-1 curl http://minio:9000/minio/health/live` |
+| 下载 `/files/` 返回 403 | Bucket 未设公开读,手动执行 `mc anonymous set download local/happymusic-builds` |
+| 下载 `/files/` 返回 404 | 文件不存在或 bucket 名错误,检查 URL 路径格式:`/files/<bucket>/<object>` |
+| 备份上传失败 | 检查 `MINIO_SECRET_KEY` 配置,backend 容器需能访问 MinIO |
+| `minio-init` 容器反复重启 | 首次初始化后可停止:`docker compose -f docker-compose.minio.yml stop minio-init` |
+
