@@ -68,8 +68,12 @@ jobs:
             libsoup-3.0-dev \
             libjavascriptcoregtk-4.1-dev
 
-      - name: Install frontend dependencies
-        run: npm install
+      - name: Install common dependencies
+        working-directory: common
+        run: npm install --no-audit --no-fund
+
+      - name: Install desktop dependencies
+        run: npm install --no-audit --no-fund
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0

@@ -1,28 +1,31 @@
-# Stage 1: Build frontend (Vite 产物)
+# Stage 1: Build frontend(Vite 产物,依赖 common 共享代码)
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# 先复制依赖清单,利用 Docker 层缓存
-COPY package.json package-lock.json ./
-RUN npm ci --no-audit --no-fund
+# 先复制 common 依赖清单并安装(common 被 frontend 通过 @common 别名引用)
+COPY common/package.json common/package-lock.json* ./common/
+RUN cd common && npm install --no-audit --no-fund
 
-# 复制源码并构建
-COPY . .
-RUN npm run build
+# 复制 frontend 依赖清单并安装
+COPY frontend/package.json frontend/package-lock.json ./frontend/
+RUN cd frontend && npm ci --no-audit --no-fund
+
+# 复制源码(common 必须在 frontend 能访问的路径)
+COPY common/ ./common/
+COPY frontend/ ./frontend/
+
+# 构建 frontend
+RUN cd frontend && npm run build
 
 
 # Stage 2: nginx 提供静态文件服务
 FROM nginx:1.27-alpine
 
-# 替换默认配置
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-# 从构建阶段复制产物
-COPY --from=builder /app/dist /usr/share/nginx/html
+COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /app/frontend/dist /usr/share/nginx/html
 
 EXPOSE 80
 
-# 健康检查(可选,便于 Docker / K8s 探针)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD wget -q --spider http://localhost/ || exit 1
 
