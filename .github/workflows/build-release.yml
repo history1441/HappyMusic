@@ -65,14 +65,43 @@ jobs:
             echo "RNTP file not found, skip patch"
           fi
 
+      - name: Configure ABI splits(按 CPU 架构分包,减小单包体积)
+        run: |
+          python3 -c "
+          with open('android/app/build.gradle','r') as f:
+              c = f.read()
+          if 'splits' not in c:
+              c = c.replace(
+                  'android {',
+                  'android {\n    splits {\n        abi {\n            enable true\n            reset()\n            include \"arm64-v8a\", \"armeabi-v7a\", \"x86_64\"\n            universalApk true\n        }\n    }\n',
+                  1
+              )
+              with open('android/app/build.gradle','w') as f:
+                  f.write(c)
+              print('ABI splits configured: arm64-v8a + armeabi-v7a + x86_64 + universal')
+          else:
+              print('splits already present')
+          "
+          cat android/app/build.gradle | grep -A8 'splits' | head -10
+
       - name: Build Release APK
         run: cd android && ./gradlew assembleRelease --no-daemon
 
-      - name: Rename APK
+      - name: Collect and rename APKs(每个 ABI 一个独立包)
         run: |
           mkdir -p artifacts
-          cp android/app/build/outputs/apk/release/app-release.apk \
-            artifacts/HappyMusic-${{ github.ref_name || 'dev' }}-android.apk
+          VERSION="${{ github.ref_name || 'dev' }}"
+          echo "=== 生成的 APK 列表 ==="
+          ls -lh android/app/build/outputs/apk/release/
+          for apk in android/app/build/outputs/apk/release/*-release.apk; do
+            base=$(basename "$apk")
+            abi=$(echo "$base" | sed 's/app-\(.*\)-release.apk/\1/')
+            # app-arm64-v8a-release.apk → HappyMusic-vX-android-arm64-v8a.apk
+            # app-universal-release.apk → HappyMusic-vX-android-universal.apk(原来的整包)
+            dest="artifacts/HappyMusic-${VERSION}-android-${abi}.apk"
+            cp "$apk" "$dest"
+            echo "  ✓ $base → $(basename $dest) ($(du -h $dest | cut -f1))"
+          done
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
