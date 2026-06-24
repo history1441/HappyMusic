@@ -58,6 +58,17 @@ class Settings(BaseSettings):
     AI_API_KEY: str = ""
     AI_MODEL: str = "gpt-3.5-turbo"
 
+    # 对象存储(MinIO / S3 兼容)— 用于 APK 发布、数据库备份等共享文件
+    MINIO_ENDPOINT: str = "minio:9000"
+    MINIO_ACCESS_KEY: str = "minioadmin"
+    MINIO_SECRET_KEY: str = ""
+    MINIO_SECURE: bool = False
+    MINIO_BUCKET_BUILDS: str = "happymusic-builds"
+    MINIO_BUCKET_BACKUPS: str = "happymusic-backups"
+    MINIO_BUCKET_PUBLIC: str = "happymusic-public"
+    # 外部访问 MinIO 的公开 URL 前缀(通过前端 nginx /files/ 代理)
+    MINIO_PUBLIC_URL: str = "/files"
+
     # 默认管理员（仅用于开发环境，生产环境必须通过 .env 配置）
     ADMIN_USERNAME: str = "admin"
     ADMIN_PASSWORD: str = ""  # Must be set via .env in production

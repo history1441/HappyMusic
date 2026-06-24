@@ -50,6 +50,15 @@ services:
       AI_API_KEY: ${AI_API_KEY:-}
       AI_MODEL: ${AI_MODEL:-gpt-3.5-turbo}
 
+      # 对象存储（连接独立的 MinIO 服务器,参考 deploy/docker-compose.minio.yml）
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_SECURE: ${MINIO_SECURE:-false}
+      MINIO_BUCKET_BUILDS: ${MINIO_BUCKET_BUILDS:-happymusic-builds}
+      MINIO_BUCKET_BACKUPS: ${MINIO_BUCKET_BACKUPS:-happymusic-backups}
+      MINIO_BUCKET_PUBLIC: ${MINIO_BUCKET_PUBLIC:-happymusic-public}
+
       # 调试
       HAPPYMUSIC_DEBUG: ${HAPPYMUSIC_DEBUG:-false}
       TZ: Asia/Shanghai
@@ -57,10 +66,8 @@ services:
     volumes:
       # 挂载源码用于热更新（可选）
       - ../backend/app:/app/app
-      # TTS 缓存目录
+      # TTS 缓存目录（本地,不需要共享）
       - tts_cache:/app/tts_cache
-      # 构建产物（可选，如果服务器需要托管 APK）
-      - ../builds:/app/builds
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9527/api/health"]
       interval: 30s

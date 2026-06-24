@@ -1,0 +1,67 @@
+# ============================================
+# MinIO 对象存储 - 独立部署
+# ============================================
+# 部署在基础设施服务器(与 MySQL/Redis 同机或独立服务器)
+# 后端通过 MINIO_ENDPOINT 远程连接,多实例共享同一对象存储
+#
+# 使用方式:
+#   1. 在 .env 配置 MINIO_ROOT_USER / MINIO_ROOT_PASSWORD
+#   2. docker compose -f deploy/docker-compose.minio.yml up -d
+#   3. 后端服务器的 .env 配置 MINIO_ENDPOINT=10.0.0.100:9000
+#
+# 对外端口:
+#   9000 - S3 API(后端 + 前端 nginx 代理访问)
+#   9001 - Web Console(管理,建议不对外暴露,用 SSH 隧道访问)
+
+version: '3.8'
+
+services:
+  minio:
+    image: minio/minio:latest
+    container_name: happymusic-minio
+    restart: unless-stopped
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      # Console 端口:生产环境建议改为 "127.0.0.1:9001:9001" 仅本地访问
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - happymusic-net
+
+  # 一次性初始化:创建 buckets 并设置公开读策略
+  minio-init:
+    image: minio/mc:latest
+    container_name: happymusic-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin123} &&
+      mc mb -p local/happymusic-builds --ignore-existing &&
+      mc mb -p local/happymusic-backups --ignore-existing &&
+      mc mb -p local/happymusic-public --ignore-existing &&
+      mc anonymous set download local/happymusic-builds &&
+      mc anonymous set download local/happymusic-public &&
+      echo 'MinIO buckets initialized successfully.'
+      "
+    restart: "no"
+    networks:
+      - happymusic-net
+
+volumes:
+  minio_data:
+
+networks:
+  happymusic-net:
+    driver: bridge

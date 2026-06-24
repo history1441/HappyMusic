@@ -1,22 +1,24 @@
 import os
 import re
+import tempfile
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
-from fastapi.responses import FileResponse
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.build_record import BuildRecord
 from app.utils.auth import get_admin_user
+from app.config import get_settings
+from app.utils import object_storage
+
+settings = get_settings()
 
 router = APIRouter(prefix="/api/admin", tags=["应用发布"])
 
-BUILD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "builds")
+BUCKET = settings.MINIO_BUCKET_BUILDS
 
 ALLOWED_EXTENSIONS = {".apk", ".exe", ".ipa", ".zip", ".dmg", ".appimage"}
-
-
-def _ensure_dirs():
-    os.makedirs(BUILD_DIR, exist_ok=True)
+MAX_UPLOAD_SIZE = 500 * 1024 * 1024  # 500MB
 
 
 def _detect_platform(filename: str) -> str:
@@ -37,6 +39,38 @@ def _extract_version(filename: str) -> str:
     return m.group(1) if m else "1.0.0"
 
 
+def _guess_content_type(filename: str) -> str:
+    ext = os.path.splitext(filename)[1].lower()
+    return {
+        ".apk": "application/vnd.android.package-archive",
+        ".exe": "application/x-msdownload",
+        ".ipa": "application/octet-stream",
+        ".zip": "application/zip",
+        ".dmg": "application/x-apple-diskimage",
+        ".appimage": "application/x-executable",
+    }.get(ext, "application/octet-stream")
+
+
+def _stream_from_minio(bucket: str, object_name: str, download_name: str):
+    """从 MinIO 流式读取,返回 StreamingResponse"""
+    response = object_storage.download_object(bucket, object_name)
+    headers = {
+        "Content-Disposition": f'attachment; filename="{download_name}"',
+        "Content-Length": str(response.headers.get("Content-Length", 0)),
+    }
+    content_type = response.headers.get("Content-Type", "application/octet-stream")
+
+    def iter_data():
+        try:
+            for chunk in response.stream(64 * 1024):
+                yield chunk
+        finally:
+            response.close()
+            response.release_conn()
+
+    return StreamingResponse(iter_data(), media_type=content_type, headers=headers)
+
+
 # --- Admin endpoints ---
 
 @router.post("/builds/upload")
@@ -48,7 +82,6 @@ async def upload_package(
     admin_id: int = Depends(get_admin_user),
     db: Session = Depends(get_db),
 ):
-    _ensure_dirs()
     ext = os.path.splitext(file.filename or "")[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=400, detail=f"不支持的文件类型: {ext}")
@@ -57,21 +90,35 @@ async def upload_package(
     plat = platform.strip() if platform.strip() else _detect_platform(filename)
     ver = version.strip() or _extract_version(filename)
 
-    dest = os.path.join(BUILD_DIR, filename)
-    if os.path.exists(dest):
+    # 同名时追加版本号
+    if object_storage.object_exists(BUCKET, filename):
         base, e = os.path.splitext(filename)
-        dest = os.path.join(BUILD_DIR, f"{base}_{ver}{e}")
-        filename = os.path.basename(dest)
+        filename = f"{base}_{ver}{e}"
 
-    # 分块流式写入,避免大文件(100MB+ APK)整体读入内存导致 OOM
+    content_type = _guess_content_type(filename)
+
+    # 先流式落临时文件(避免大文件 OOM),再 fput_object 上传 MinIO
     file_size = 0
-    with open(dest, "wb") as f:
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp_path = tmp.name
         while True:
-            chunk = await file.read(1024 * 1024)  # 1MB chunks
+            chunk = await file.read(1024 * 1024)
             if not chunk:
                 break
-            f.write(chunk)
             file_size += len(chunk)
+            if file_size > MAX_UPLOAD_SIZE:
+                tmp.close()
+                os.unlink(tmp_path)
+                raise HTTPException(status_code=413, detail=f"文件超过 {MAX_UPLOAD_SIZE // 1024 // 1024}MB 限制")
+            tmp.write(chunk)
+
+    try:
+        object_storage.ensure_bucket(BUCKET)
+        client = object_storage.get_minio()
+        client.fput_object(BUCKET, filename, tmp_path, content_type=content_type)
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
 
     rec = BuildRecord(
         build_type="upload", version=ver, platform=plat,
@@ -107,10 +154,12 @@ def delete_release(release_id: int, admin_id: int = Depends(get_admin_user), db:
     rec = db.query(BuildRecord).filter(BuildRecord.id == release_id).first()
     if not rec:
         raise HTTPException(status_code=404, detail="记录不存在")
+    # 删除对象存储中的文件
     if rec.filename:
-        path = os.path.join(BUILD_DIR, rec.filename)
-        if os.path.exists(path):
-            os.remove(path)
+        try:
+            object_storage.delete_object(BUCKET, rec.filename)
+        except Exception:
+            pass  # 对象不存在不阻断删除
     db.delete(rec)
     db.commit()
     return {"ok": True}
@@ -118,14 +167,15 @@ def delete_release(release_id: int, admin_id: int = Depends(get_admin_user), db:
 
 @router.get("/builds/downloads")
 def list_builds(admin_id: int = Depends(get_admin_user)):
-    _ensure_dirs()
     files = []
-    for f in os.listdir(BUILD_DIR):
-        if f.startswith("."):
+    for obj in object_storage.list_objects(BUCKET):
+        if obj.object_name.startswith("."):
             continue
-        path = os.path.join(BUILD_DIR, f)
-        if os.path.isfile(path):
-            files.append({"name": f, "size": os.path.getsize(path), "modified": os.path.getmtime(path)})
+        files.append({
+            "name": obj.object_name,
+            "size": obj.size,
+            "modified": obj.last_modified.timestamp() if obj.last_modified else 0,
+        })
     return {"files": sorted(files, key=lambda x: -x["modified"])}
 
 
@@ -133,19 +183,17 @@ def list_builds(admin_id: int = Depends(get_admin_user)):
 def download_build(filename: str, admin_id: int = Depends(get_admin_user)):
     if ".." in filename or "/" in filename:
         raise HTTPException(status_code=400, detail="非法文件名")
-    path = os.path.join(BUILD_DIR, filename)
-    if not os.path.exists(path):
+    if not object_storage.object_exists(BUCKET, filename):
         raise HTTPException(status_code=404, detail="文件不存在")
-    return FileResponse(path, filename=filename)
+    return _stream_from_minio(BUCKET, filename, filename)
 
 
 @router.delete("/builds/download/{filename}")
 def delete_build(filename: str, admin_id: int = Depends(get_admin_user)):
     if ".." in filename or "/" in filename:
         raise HTTPException(status_code=400, detail="非法文件名")
-    path = os.path.join(BUILD_DIR, filename)
-    if os.path.exists(path):
-        os.remove(path)
+    if object_storage.object_exists(BUCKET, filename):
+        object_storage.delete_object(BUCKET, filename)
     return {"ok": True}
 
 
@@ -186,14 +234,13 @@ def list_public_releases(platform: str = "", db: Session = Depends(get_db)):
 def download_release(filename: str, db: Session = Depends(get_db)):
     if ".." in filename or "/" in filename:
         raise HTTPException(status_code=400, detail="非法文件名")
-    path = os.path.join(BUILD_DIR, filename)
-    if not os.path.exists(path):
+    if not object_storage.object_exists(BUCKET, filename):
         raise HTTPException(status_code=404, detail="文件不存在")
     rec = db.query(BuildRecord).filter(BuildRecord.filename == filename).first()
     if rec:
         rec.downloads = (rec.downloads or 0) + 1
         db.commit()
-    return FileResponse(path, filename=filename)
+    return _stream_from_minio(BUCKET, filename, filename)
 
 
 def _serialize(r: BuildRecord) -> dict:
