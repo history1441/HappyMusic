@@ -1,0 +1,188 @@
+# HappyMusic 单机完整部署（开发/小规模生产）
+#
+# 这是单服务器部署的默认配置，包含所有服务。
+# 如果要做分布式部署（多台服务器），请使用 deploy/ 目录下的分角色配置：
+#   - deploy/docker-compose.infrastructure.yml  (MySQL + Redis)
+#   - deploy/docker-compose.backend.yml         (后端实例，每台服务器一个)
+#   - deploy/docker-compose.frontend.yml        (Nginx LB + 前端)
+#
+# 使用方式（单机）：
+#   cp .env.dist .env  # 复制并修改配置
+#   docker compose up -d
+#
+# 端口说明：
+#   80    - 前端 HTTP（静态文件 + API 代理）
+#   8080  - Nginx 负载均衡器
+#   9527  - 后端实例 1
+#   9528  - 后端实例 2
+#   3306  - MySQL
+#   6379  - Redis
+
+version: '3.8'
+
+services:
+  # ========== 基础设施 ==========
+
+  mysql:
+    image: docker.passyun.dpdns.org/mysql:8.0
+    container_name: happymusic-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_pass_2026}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-happymusic}
+      MYSQL_USER: ${MYSQL_USER:-happymusic}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-happymusic_pass_2026}
+    ports:
+      - "${MYSQL_PORT:-33206}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --max-connections=200
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: happymusic-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-63996}:6379"
+    volumes:
+      - redis_data:/data
+    command: >
+      redis-server
+      --appendonly yes
+      ${REDIS_PASSWORD:+--requirepass ${REDIS_PASSWORD}}
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ========== 后端实例（单机部署 2 实例）==========
+
+  backend-1:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: happymusic-backend-1
+    restart: unless-stopped
+    ports:
+      - "9527:9527"
+    environment:
+      INSTANCE_ID: backend-1
+      WS_BROADCAST_CHANNEL: ${WS_BROADCAST_CHANNEL:-happymusic:ws:broadcast}
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: ${MYSQL_USER:-happymusic}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-happymusic_pass_2026}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-happymusic}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-happymusic-secret-change-in-prod-2026}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      AI_PROVIDER: ${AI_PROVIDER:-openai}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-gpt-3.5-turbo}
+      HAPPYMUSIC_DEBUG: ${HAPPYMUSIC_DEBUG:-false}
+      TZ: Asia/Shanghai
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/.env:/app/.env
+      - tts_cache_1:/app/tts_cache
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9527/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  backend-2:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: happymusic-backend-2
+    restart: unless-stopped
+    ports:
+      - "9528:9527"
+    environment:
+      INSTANCE_ID: backend-2
+      WS_BROADCAST_CHANNEL: ${WS_BROADCAST_CHANNEL:-happymusic:ws:broadcast}
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: ${MYSQL_USER:-happymusic}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-happymusic_pass_2026}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-happymusic}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-happymusic-secret-change-in-prod-2026}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      AI_PROVIDER: ${AI_PROVIDER:-openai}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-gpt-3.5-turbo}
+      HAPPYMUSIC_DEBUG: ${HAPPYMUSIC_DEBUG:-false}
+      TZ: Asia/Shanghai
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/.env:/app/.env
+      - tts_cache_2:/app/tts_cache
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9527/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ========== Nginx 负载均衡器 ==========
+
+  nginx-lb:
+    image: nginx:alpine
+    container_name: happymusic-nginx-lb
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./backend/nginx-loadbalancer.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend-1
+      - backend-2
+
+  # ========== 前端 ==========
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: happymusic-frontend
+    restart: unless-stopped
+    ports:
+      - "8190:80"
+    volumes:
+      - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - nginx-lb
+
+volumes:
+  mysql_data:
+  redis_data:
+  tts_cache_1:
+  tts_cache_2:

@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "HappyMusic",
+    "slug": "happymusic",
+    "version": "1.8.13",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": false,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.happymusic.app"
+    },
+    "android": {
+      "versionCode": 67,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.happymusic.app",
+      "permissions": [
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "WAKE_LOCK"
+      ]
+    },
+    "plugins": [
+      "expo-camera",
+      "./app.plugin"
+    ],
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}

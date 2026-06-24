@@ -1,0 +1,70 @@
+# ============================================
+# 基础设施服务器 - MySQL + Redis
+# 部署在专用服务器上，为所有 backend 实例提供共享服务
+# ============================================
+#
+# 使用方式：
+#   1. 复制 .env.dist 到 .env 并修改密码
+#   2. docker compose -f docker-compose.infrastructure.yml up -d
+#
+# 对外暴露端口：
+#   3306 - MySQL（建议仅内网访问）
+#   6379 - Redis（建议仅内网访问）
+
+version: '3.8'
+
+services:
+  mysql:
+    image: docker.passyun.dpdns.org/mysql:8.0
+    container_name: happymusic-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_pass_2026}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-happymusic}
+      MYSQL_USER: ${MYSQL_USER:-happymusic}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-happymusic_pass_2026}
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --max-connections=200
+      --innodb-buffer-pool-size=1G
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - happymusic-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: happymusic-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    # 启用 AOF 持久化 + 设置密码（如果环境变量存在）
+    command: >
+      redis-server
+      --appendonly yes
+      ${REDIS_PASSWORD:+--requirepass ${REDIS_PASSWORD}}
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - happymusic-net
+
+volumes:
+  mysql_data:
+  redis_data:
+
+networks:
+  happymusic-net:
+    driver: bridge
