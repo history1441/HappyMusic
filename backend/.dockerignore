@@ -1,5 +1,49 @@
+# Python 缓存与编译产物
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+
+# 虚拟环境
 .env
+.env.*
 .venv
 venv/
+env/
+
+# 版本控制
+.git/
+.gitignore
+.gitattributes
+
+# 构建产物
+build/
+dist/
+target/
+builds/
+backups/
+logs/
+*.log
+
+# 测试与文档(生产镜像不需要)
+tests/
+docs/
+*.md
+
+# 开发工具配置
+.vscode/
+.idea/
+.claude/
+.dss/
+*.swp
+
+# Dockerfile 本身(不需要打进镜像)
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
