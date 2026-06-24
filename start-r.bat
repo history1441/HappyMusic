@@ -1,1 +1,0 @@
-claude --allow-dangerously-skip-permissions -r
