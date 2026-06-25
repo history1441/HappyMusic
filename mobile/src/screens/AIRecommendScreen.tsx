@@ -228,6 +228,10 @@ export default function AIRecommendScreen() {
         data={recommendations}
         keyExtractor={(item, idx) => `${item.song}_${item.artist}_${idx}`}
         renderItem={renderItem}
+        removeClippedSubviews={true}
+        initialNumToRender={8}
+        maxToRenderPerBatch={5}
+        windowSize={5}
         refreshing={refreshing}
         onRefresh={() => loadRecommendations(true)}
         contentContainerStyle={recommendations.length === 0 ? styles.emptyList : { paddingBottom: 20 }}

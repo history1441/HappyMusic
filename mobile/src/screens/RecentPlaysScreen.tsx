@@ -143,6 +143,10 @@ export default function RecentPlaysScreen() {
             }}
           />
         )}
+        removeClippedSubviews={true}
+        initialNumToRender={8}
+        maxToRenderPerBatch={5}
+        windowSize={5}
         contentContainerStyle={plays.length === 0 ? styles.emptyList : undefined}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>

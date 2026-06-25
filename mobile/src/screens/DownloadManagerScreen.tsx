@@ -168,6 +168,10 @@ export default function DownloadManagerScreen() {
           }
           return renderActiveItem({ item: item.task })
         }}
+        removeClippedSubviews={true}
+        initialNumToRender={8}
+        maxToRenderPerBatch={5}
+        windowSize={5}
         contentContainerStyle={tasks.length === 0 ? styles.emptyList : undefined}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>

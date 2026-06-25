@@ -15,6 +15,8 @@ import { cleanupExpiredCache } from './src/services/storageService'
 import { loadSavedApiUrl, checkBackendReachable, saveApiUrl, getApiUrl, APP_VERSION } from './src/utils/constants'
 import RootNavigator from './src/navigation/RootNavigator'
 import Toast from './src/components/Toast'
+import OfflineBanner from './src/components/OfflineBanner'
+import { useNetworkStore } from './src/stores/networkStore'
 import ErrorBoundary from './src/components/ErrorBoundary'
 
 function compareVersions(a: string, b: string): number {
@@ -167,6 +169,9 @@ export default function App() {
   }
 
   useEffect(() => {
+    // 网络状态监听(离线检测,App 生命周期内常驻)
+    useNetworkStore.getState().init()
+
     const init = async () => {
       ErrorUtils.setGlobalHandler((error, isFatal) => {
         console.error('Global error:', isFatal, error)
@@ -299,6 +304,7 @@ export default function App() {
     <SafeAreaProvider>
       <View style={styles.container}>
         <StatusBar style="auto" />
+        <OfflineBanner />
         <ErrorBoundary>
           <RootNavigator />
         </ErrorBoundary>

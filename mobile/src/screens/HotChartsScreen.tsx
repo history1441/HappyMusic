@@ -195,6 +195,10 @@ export default function HotChartsScreen() {
           data={songs}
           keyExtractor={(item, idx) => `${item.rank}_${idx}`}
           renderItem={renderItem}
+          removeClippedSubviews={true}
+          initialNumToRender={8}
+          maxToRenderPerBatch={5}
+          windowSize={5}
           contentContainerStyle={songs.length === 0 ? styles.emptyList : undefined}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>

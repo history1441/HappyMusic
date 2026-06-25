@@ -206,6 +206,10 @@ export default function LoginHistoryScreen() {
           data={records}
           keyExtractor={(item) => String(item.id)}
           renderItem={renderItem}
+          removeClippedSubviews={true}
+          initialNumToRender={8}
+          maxToRenderPerBatch={5}
+          windowSize={5}
           contentContainerStyle={records.length === 0 ? styles.emptyList : undefined}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>

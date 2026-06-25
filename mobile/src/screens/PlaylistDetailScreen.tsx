@@ -108,6 +108,10 @@ export default function PlaylistDetailScreen() {
           data={songs}
           keyExtractor={(_, i) => String(i)}
           renderItem={renderItem}
+          removeClippedSubviews={true}
+          initialNumToRender={8}
+          maxToRenderPerBatch={5}
+          windowSize={5}
           refreshing={loading}
           onRefresh={loadSongs}
           ListEmptyComponent={<Text style={styles.empty}>暂无歌曲</Text>}

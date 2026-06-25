@@ -99,6 +99,10 @@ export default function LocalLibraryScreen() {
         data={data}
         keyExtractor={(_, i) => String(i)}
         renderItem={renderItem}
+        removeClippedSubviews={true}
+        initialNumToRender={8}
+        maxToRenderPerBatch={5}
+        windowSize={5}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Ionicons name="musical-notes-outline" size={48} color={colors.textTertiary} />
