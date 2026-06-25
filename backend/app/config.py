@@ -69,6 +69,10 @@ class Settings(BaseSettings):
     # 外部访问 MinIO 的公开 URL 前缀(通过前端 nginx /files/ 代理)
     MINIO_PUBLIC_URL: str = "/files"
 
+    # GlitchTip 错误追踪(自建,Sentry 兼容;DSN 留空则禁用)
+    GLITCHTIP_DSN: str = ""
+    GLITCHTIP_ENVIRONMENT: str = "production"
+
     # 默认管理员（仅用于开发环境，生产环境必须通过 .env 配置）
     ADMIN_USERNAME: str = "admin"
     ADMIN_PASSWORD: str = ""  # Must be set via .env in production

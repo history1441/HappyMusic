@@ -1,0 +1,7 @@
+# 开发/测试依赖(生产部署不需要)
+# 用法:pip install -r requirements.txt -r requirements-dev.txt
+
+pytest==8.4.2
+pytest-asyncio==0.24.0
+pytest-cov==5.0.0
+# httpx 已在 requirements.txt(TestClient 依赖)

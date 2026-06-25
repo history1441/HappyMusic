@@ -1,0 +1,78 @@
+# ============================================
+# GlitchTip 错误追踪(自建,Sentry 开源替代)
+# ============================================
+# 部署后访问 http://server:9002 注册管理员
+# 创建 Project(Python 平台)→ 获取 DSN → 写入主 .env 的 GLITCHTIP_DSN
+#
+# 启动:
+#   docker compose -f deploy/docker-compose.glitchtip.yml up -d
+#
+# 独立部署,使用自己的 PostgreSQL(不与主 MySQL 冲突)
+
+version: '3.8'
+
+services:
+  glitchtip-web:
+    image: glitchtip/glitchtip:latest
+    container_name: happymusic-glitchtip
+    restart: unless-stopped
+    depends_on:
+      glitchtip-db:
+        condition: service_healthy
+      glitchtip-redis:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgres://${GLITCHTIP_DB_USER:-glitchtip}:${GLITCHTIP_DB_PASSWORD:-glitchtip_pass}@glitchtip-db:5432/glitchtip
+      REDIS_URL: redis://glitchtip-redis:6379/0
+      SECRET_KEY: ${GLITCHTIP_SECRET_KEY:-change_this_glitchtip_secret}
+      PORT: 8000
+      DEFAULT_FROM_EMAIL: glitchtip@localhost
+      EMAIL_URL: smtp://localhost:25
+      ENABLE_SOCIAL_AUTH: "False"
+    ports:
+      - "${GLITCHTIP_PORT:-9002}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  glitchtip-worker:
+    image: glitchtip/glitchtip:latest
+    container_name: happymusic-glitchtip-worker
+    restart: unless-stopped
+    depends_on:
+      glitchtip-db:
+        condition: service_healthy
+      glitchtip-redis:
+        condition: service_started
+    command: ./bin/run-celery-with-beat.sh
+    environment:
+      DATABASE_URL: postgres://${GLITCHTIP_DB_USER:-glitchtip}:${GLITCHTIP_DB_PASSWORD:-glitchtip_pass}@glitchtip-db:5432/glitchtip
+      REDIS_URL: redis://glitchtip-redis:6379/0
+      SECRET_KEY: ${GLITCHTIP_SECRET_KEY:-change_this_glitchtip_secret}
+
+  glitchtip-db:
+    image: postgres:16-alpine
+    container_name: happymusic-glitchtip-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: glitchtip
+      POSTGRES_USER: ${GLITCHTIP_DB_USER:-glitchtip}
+      POSTGRES_PASSWORD: ${GLITCHTIP_DB_PASSWORD:-glitchtip_pass}
+    volumes:
+      - glitchtip_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${GLITCHTIP_DB_USER:-glitchtip}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  glitchtip-redis:
+    image: redis:7-alpine
+    container_name: happymusic-glitchtip-redis
+    restart: unless-stopped
+
+volumes:
+  glitchtip_db_data:

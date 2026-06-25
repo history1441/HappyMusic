@@ -20,6 +20,19 @@ from app.models import play_log, announcement, api_metric, admin_audit, user_aud
 
 settings = get_settings()
 
+# GlitchTip 错误追踪初始化(配置了 DSN 才启用,兼容 Sentry SDK)
+if settings.GLITCHTIP_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+    sentry_sdk.init(
+        dsn=settings.GLITCHTIP_DSN,
+        environment=settings.GLITCHTIP_ENVIRONMENT,
+        traces_sample_rate=0.1,
+        integrations=[SqlalchemyIntegration()],
+        send_default_pii=False,
+    )
+    logging.getLogger().info(f"Sentry/GlitchTip initialized (env={settings.GLITCHTIP_ENVIRONMENT})")
+
 # File logging
 LOG_DIR = "/app/logs"
 os.makedirs(LOG_DIR, exist_ok=True)

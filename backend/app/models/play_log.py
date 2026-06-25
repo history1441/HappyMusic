@@ -7,7 +7,7 @@ class PlayLog(Base):
     __tablename__ = "play_logs"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     song_name = Column(String(200), nullable=False)
     singers = Column(String(200), nullable=False)
     album = Column(String(200), default="")
