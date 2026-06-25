@@ -31,3 +31,38 @@ export function parseLyric(raw: string): { time: number; text: string; translati
   }
   return parsed
 }
+
+/** 文件大小格式化(别名,与 formatSize 一致,命名更清晰) */
+export function formatFileSize(bytes: number): string {
+  return formatSize(bytes)
+}
+
+/** 比特率格式化:320000 → "320 kbps" */
+export function formatBitrate(bps: number): string {
+  if (!bps || isNaN(bps)) return '未知'
+  const kbps = Math.round(bps / 1000)
+  return `${kbps} kbps`
+}
+
+/** 时间戳格式化:毫秒 → "YYYY-MM-DD HH:mm" */
+export function formatTimestamp(ms: number): string {
+  if (!ms || isNaN(ms)) return ''
+  const d = new Date(ms)
+  const pad = (n: number) => n.toString().padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+/** 邮箱格式校验 */
+export function validateEmail(s: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)
+}
+
+/** 文件名清理:过滤非法字符(用于下载命名) */
+export function sanitizeFilename(name: string): string {
+  return name.replace(/[\\/:*?"<>|]/g, '_').replace(/\s+/g, ' ').trim().substring(0, 200)
+}
+
+/** 数字千分位:12345 → "12,345" */
+export function formatNumber(n: number): string {
+  return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+}

@@ -53,3 +53,55 @@ export interface User {
 }
 
 export type PlayMode = 'sequence' | 'random' | 'single'
+
+// ========== API 契约类型(三端共用,减少 any) ==========
+
+export interface ApiResponse<T> {
+  data: T
+  message?: string
+  code?: number
+}
+
+export interface PaginatedResponse<T> {
+  items: T[]
+  total: number
+  page: number
+  page_size: number
+  has_more: boolean
+}
+
+export interface ErrorResponse {
+  detail: string
+  code?: string
+}
+
+export interface SearchRequest {
+  keyword: string
+  sources?: string[]
+  page?: number
+  page_size?: number
+}
+
+export interface SearchResult {
+  keyword: string
+  results: Song[]
+  total: number
+  page: number
+  page_size: number
+  has_more: boolean
+}
+
+export interface TokenResponse {
+  access_token: string
+  refresh_token: string
+  token_type?: string
+}
+
+export interface Announcement {
+  id: number
+  title: string
+  content: string
+  type?: string
+  is_pinned?: boolean
+  created_at?: string
+}

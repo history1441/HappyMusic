@@ -9,6 +9,7 @@
 
     /* Path alias(TS 5.0+ paths 无需 baseUrl,相对 tsconfig 解析) */
     "paths": {
+      "@common": ["../common/src"],
       "@common/*": ["../common/src/*"]
     },
 
