@@ -1,5 +1,6 @@
 import logging
 import os
+import json
 import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -36,13 +37,33 @@ if settings.GLITCHTIP_DSN:
 # File logging
 LOG_DIR = "/app/logs"
 os.makedirs(LOG_DIR, exist_ok=True)
+
+
+class JsonFormatter(logging.Formatter):
+    """结构化 JSON 日志(StreamHandler 用,便于 ELK/Loki 等聚合系统解析)"""
+    def format(self, record: logging.LogRecord) -> str:
+        log = {
+            "ts": self.formatTime(record, "%Y-%m-%dT%H:%M:%S"),
+            "level": record.levelname,
+            "logger": record.name,
+            "msg": record.getMessage(),
+            "instance": settings.INSTANCE_ID,
+        }
+        if record.exc_info:
+            log["exception"] = self.formatException(record.exc_info)
+        return json.dumps(log, ensure_ascii=False)
+
+
+# 文件日志:纯文本(本地调试易读);控制台日志:JSON(容器日志聚合)
+_file_handler = logging.FileHandler(os.path.join(LOG_DIR, "app.log"), encoding="utf-8")
+_file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+
+_stream_handler = logging.StreamHandler()
+_stream_handler.setFormatter(JsonFormatter())
+
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[
-        logging.FileHandler(os.path.join(LOG_DIR, "app.log"), encoding="utf-8"),
-        logging.StreamHandler(),
-    ],
+    handlers=[_file_handler, _stream_handler],
 )
 
 
@@ -50,6 +71,16 @@ logging.basicConfig(
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     _ensure_admin()
+    # 加载自定义音源适配器(热更新,扫描 custom_sources/)
+    try:
+        from app.services.source_loader import load_all_custom_sources
+        result = load_all_custom_sources()
+        if result["loaded"]:
+            logging.getLogger().info(f"Loaded {len(result['loaded'])} custom sources: {[s['short_name'] for s in result['loaded']]}")
+        if result["failed"]:
+            logging.getLogger().warning(f"Failed custom sources: {result['failed']}")
+    except Exception as e:
+        logging.getLogger().warning(f"Custom sources load failed: {e}")
     # 启动 WebSocket 跨实例广播
     from app.utils.redis import WsBroadcast
     from app.routers.sync import manager as sync_manager

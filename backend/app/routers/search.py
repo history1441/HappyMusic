@@ -3,7 +3,7 @@ import json
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
@@ -165,14 +165,27 @@ async def search(
         all_songs = cached
     else:
         loop = asyncio.get_event_loop()
-        try:
-            songs = await asyncio.wait_for(
-                loop.run_in_executor(executor, _do_search, req.keyword, req.sources),
-                timeout=180,
-            )
-        except asyncio.TimeoutError:
-            return SearchResponse(keyword=req.keyword, results=[], total=0, page=1, page_size=req.page_size, has_more=False)
-        all_songs = [s.model_dump() for s in songs]
+        actual_sources = _get_actual_sources(req.sources)
+        # 每音源独立 60 秒超时,并发搜索(慢音源不拖累快音源)
+        async def search_one(src: str) -> list[dict]:
+            try:
+                return await asyncio.wait_for(
+                    loop.run_in_executor(executor, _search_single_source, req.keyword, src),
+                    timeout=60,
+                )
+            except asyncio.TimeoutError:
+                print(f"Source {src} timed out after 60s")
+                return []
+            except Exception as e:
+                print(f"Source {src} error: {e}")
+                return []
+
+        tasks = [asyncio.create_task(search_one(src)) for src in actual_sources]
+        results = await asyncio.gather(*tasks)
+        all_songs: list[dict] = []
+        for songs in results:
+            all_songs.extend(songs)
+        all_songs.sort(key=lambda s: s.get("with_valid_download_url", False), reverse=True)
         if all_songs:
             set_cached_search(req.keyword, all_songs, req.sources)
 
@@ -196,9 +209,10 @@ async def search(
 @router.post("/search/stream")
 async def search_stream(
     req: SearchRequest,
+    request: Request,
     user_id: int = Depends(get_current_user),
 ):
-    """SSE 流式搜索：优先返回缓存，未命中则逐源推送"""
+    """SSE 流式搜索:优先返回缓存,未命中则逐源推送(客户端断开自动取消后台任务)"""
     actual_sources = _get_actual_sources(req.sources)
 
     async def event_generator():
@@ -242,8 +256,11 @@ async def search_stream(
             try:
                 songs = await asyncio.wait_for(
                     loop.run_in_executor(executor, _search_single_source, req.keyword, source_name),
-                    timeout=90,
+                    timeout=60,
                 )
+            except asyncio.TimeoutError:
+                print(f"Stream search {source_name} timed out after 60s")
+                songs = []
             except Exception as e:
                 print(f"Stream search {source_name} error: {e}")
                 songs = []
@@ -253,6 +270,14 @@ async def search_stream(
         tasks = [asyncio.create_task(search_one(src)) for src in actual_sources]
 
         for coro in asyncio.as_completed(tasks):
+            # 客户端断开则取消所有后台搜索任务,避免无效计算
+            if await request.is_disconnected():
+                for t in tasks:
+                    if not t.done():
+                        t.cancel()
+                print(f"Client disconnected, cancelled {len(tasks)} search tasks")
+                return
+
             try:
                 source_name, songs, elapsed = await coro
             except Exception as e:
@@ -271,6 +296,11 @@ async def search_stream(
                 "total_so_far": len(all_songs),
             }
             yield f"data: {json.dumps(event_data, ensure_ascii=False)}\n\n"
+
+        # 兜底清理未完成的任务
+        for t in tasks:
+            if not t.done():
+                t.cancel()
 
         all_songs.sort(key=lambda s: s.get("with_valid_download_url", False), reverse=True)
 

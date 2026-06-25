@@ -109,3 +109,43 @@ def sources_stats(admin_id: int = Depends(get_admin_user), db: Session = Depends
         PlayLog.source, func.count(PlayLog.id).label("plays"),
     ).filter(PlayLog.played_at >= since).group_by(PlayLog.source).all()
     return {r[0] or "unknown": r[1] for r in rows}
+
+
+# ========== musicdl 第三方库热更新 ==========
+
+@router.get("/sources/musicdl/version")
+def musicdl_version(admin_id: int = Depends(get_admin_user)):
+    """查看当前 musicdl 版本和 PyPI 最新版本"""
+    from app.services.musicdl_updater import get_musicdl_version, get_latest_version
+    return {
+        "current": get_musicdl_version(),
+        "latest": get_latest_version(),
+    }
+
+
+@router.post("/sources/musicdl/upgrade")
+def musicdl_upgrade(body: dict = None, admin_id: int = Depends(get_admin_user)):
+    """运行中升级 musicdl(无需重启 backend,清除模块缓存后下次搜索生效)
+
+    Body(可选): {"version": "2.11.0"} 指定版本;不传则升级到最新
+    """
+    from app.services.musicdl_updater import upgrade_musicdl
+    version = (body or {}).get("version")
+    return upgrade_musicdl(version)
+
+
+# ========== 自定义音源适配器热加载 ==========
+
+@router.get("/sources/custom/list")
+def custom_sources_list(admin_id: int = Depends(get_admin_user)):
+    """列出已加载的自定义音源适配器"""
+    from app.services.source_loader import get_loaded_sources
+    return {"sources": get_loaded_sources()}
+
+
+@router.post("/sources/custom/reload")
+def custom_sources_reload(admin_id: int = Depends(get_admin_user)):
+    """重新扫描 custom_sources/ 目录,热加载适配器"""
+    from app.services.source_loader import reload_all
+    return reload_all()
+

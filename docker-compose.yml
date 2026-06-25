@@ -20,6 +20,21 @@
 
 version: '3.8'
 
+# 日志轮转配置(避免日志撑爆磁盘,所有服务引用)
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+# 资源限制(防止容器 OOM 影响其他服务)
+x-backend-resources: &backend-resources
+  limits:
+    memory: 1G
+    cpus: '1.5'
+  reservations:
+    memory: 256M
+
 services:
   # ========== 基础设施 ==========
 
@@ -111,6 +126,9 @@ services:
       dockerfile: Dockerfile
     container_name: happymusic-backend-1
     restart: unless-stopped
+    logging: *default-logging
+    deploy:
+      resources: *backend-resources
     ports:
       - "9527:9527"
     environment:
@@ -163,6 +181,9 @@ services:
       dockerfile: Dockerfile
     container_name: happymusic-backend-2
     restart: unless-stopped
+    logging: *default-logging
+    deploy:
+      resources: *backend-resources
     ports:
       - "9528:9527"
     environment:
