@@ -8,6 +8,7 @@ import api, {
 } from '@common/services/api'
 import { useQualityStore } from '@common/stores/qualityStore'
 import { QUALITY_PRESETS } from '@common/utils/playerControls'
+import { checkUpdate, downloadAndInstall } from '../services/updateService'
 import { showToast } from '../components/Toast'
 import { cn } from '../utils/cn'
 import {
@@ -122,33 +123,15 @@ export default function SettingsScreen() {
 
   const handleCheckUpdate = async () => {
     try {
-      const controller = new AbortController()
-      const timer = setTimeout(() => controller.abort(), 8000)
-      const res = await fetch(`${getApiUrl()}/api/app/releases/latest?platform=desktop`, {
-        signal: controller.signal,
-      })
-      clearTimeout(timer)
-      const data = await res.json()
-      if (data.version) {
-        const va = APP_VERSION.split('.').map(Number)
-        const vb = (data.version as string).split('.').map(Number)
-        let isNewer = false
-        for (let i = 0; i < Math.max(va.length, vb.length); i++) {
-          if ((vb[i] || 0) > (va[i] || 0)) { isNewer = true; break }
-          if ((vb[i] || 0) < (va[i] || 0)) break
-        }
-        if (isNewer) {
-          if (window.confirm(`发现新版本 v${data.version}\n\n${data.changelog || ''}\n\n是否立即下载？`)) {
-            window.open(`${getApiUrl()}/api/app/releases/download/${data.filename}`, '_blank')
-          }
-        } else {
-          showToast(`已是最新版本 v${APP_VERSION}`, 'success')
-        }
-      } else {
+      const upd = await checkUpdate()
+      if (!upd) {
         showToast(`已是最新版本 v${APP_VERSION}`, 'success')
+        return
       }
-    } catch {
-      showToast('检查更新失败，无法连接到服务器', 'error')
+      if (!window.confirm(`发现新版本 v${upd.version}\n\n${upd.changelog || '建议更新到最新版本'}\n\n是否立即下载并安装?`)) return
+      await downloadAndInstall(upd)
+    } catch (e: any) {
+      showToast(`更新失败: ${e?.message || e}`, 'error')
     }
   }
 

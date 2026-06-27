@@ -16,7 +16,7 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(download::DownloadState::new())
-        .invoke_handler(tauri::generate_handler![download::download_file])
+        .invoke_handler(tauri::generate_handler![download::download_file, download::open_file])
         .setup(|app| {
             let show = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;

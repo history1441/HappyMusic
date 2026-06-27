@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, TextInput, Modal, Linking, Image, Switch } from 'react-native'
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, TextInput, Modal, Image, Switch } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import { Ionicons } from '@expo/vector-icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -9,6 +9,7 @@ import { useTheme } from '../hooks/useTheme'
 import { cleanupExpiredCache } from '../services/storageService'
 import * as FileSystem from 'expo-file-system/legacy'
 import { getApiUrl, saveApiUrl, checkBackendReachable, APP_VERSION } from '../utils/constants'
+import { checkUpdate, downloadAndInstall, type UpdateInfo } from '../services/updateService'
 import { useCacheLimitStore } from '../stores/cacheLimitStore'
 import { useComfortStore, TTS_VOICES } from '../stores/comfortStore'
 import { useQualityStore, QUALITY_PRESETS } from '@happymusic/common'
@@ -32,6 +33,8 @@ export default function SettingsScreen() {
   const [showVoicePicker, setShowVoicePicker] = useState(false)
   const [showThemePicker, setShowThemePicker] = useState(false)
   const [showQualityPicker, setShowQualityPicker] = useState(false)
+  const [showUpdateModal, setShowUpdateModal] = useState(false)
+  const [updateProgress, setUpdateProgress] = useState(0)
   const [freeSpaceMB, setFreeSpaceMB] = useState(10000) // 默认 10GB
   const [cacheInputGB, setCacheInputGB] = useState(maxMB === 0 ? '' : String(maxMB / 1000))
 
@@ -64,28 +67,33 @@ export default function SettingsScreen() {
 
   const handleCheckUpdate = async () => {
     try {
-      const { data } = await api.get('/app/releases/latest', { params: { platform: 'android' }, timeout: 8000 })
-      if (data.version) {
-        const va = APP_VERSION.split('.').map(Number)
-        const vb = data.version.split('.').map(Number)
-        let isNewer = false
-        for (let i = 0; i < Math.max(va.length, vb.length); i++) {
-          if ((vb[i] || 0) > (va[i] || 0)) { isNewer = true; break }
-          if ((vb[i] || 0) < (va[i] || 0)) break
-        }
-        if (isNewer) {
-          Alert.alert('发现新版本', `当前: v${APP_VERSION} → 最新: v${data.version}\n\n${data.changelog || ''}`, [
-            { text: '稍后再说', style: 'cancel' },
-            { text: '立即下载', onPress: () => Linking.openURL(`${getApiUrl()}/api/app/releases/download/${data.filename}`) },
-          ])
-        } else {
-          Alert.alert('已是最新版本', `当前: v${APP_VERSION}`)
-        }
-      } else {
+      const upd = await checkUpdate()
+      if (!upd) {
         Alert.alert('已是最新版本', `当前: v${APP_VERSION}`)
+        return
       }
+      Alert.alert(
+        '发现新版本',
+        `当前: v${APP_VERSION} → 最新: v${upd.version}\n\n${upd.changelog || '建议更新到最新版本'}`,
+        [
+          { text: '稍后再说', style: 'cancel' },
+          { text: '立即更新', onPress: () => startUpdate(upd) },
+        ]
+      )
     } catch {
       Alert.alert('检查失败', '无法连接到服务器')
+    }
+  }
+
+  const startUpdate = async (upd: UpdateInfo) => {
+    setUpdateProgress(0)
+    setShowUpdateModal(true)
+    try {
+      await downloadAndInstall(upd, (pct) => setUpdateProgress(Math.round(pct * 100)))
+      // 安装器拉起后,当前应用会进入后台;此处无需关闭弹窗
+    } catch (e: any) {
+      setShowUpdateModal(false)
+      Alert.alert('更新失败', e?.message || '请稍后重试')
     }
   }
 
@@ -497,6 +505,21 @@ export default function SettingsScreen() {
             >
               <Text style={{ color: colors.textSecondary }}>关闭</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 应用内更新下载进度弹窗 */}
+      <Modal visible={showUpdateModal} transparent animationType="fade">
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <View style={{ backgroundColor: colors.card, borderRadius: 12, padding: 24, width: '80%', alignItems: 'center' }}>
+            <Text style={{ fontSize: 16, fontWeight: '600', color: colors.text, marginBottom: 16 }}>
+              {updateProgress < 100 ? '正在下载更新…' : '下载完成,正在安装'}
+            </Text>
+            <View style={{ width: '100%', height: 8, backgroundColor: colors.borderLight, borderRadius: 4, overflow: 'hidden' }}>
+              <View style={{ width: `${updateProgress}%`, height: '100%', backgroundColor: colors.primary }} />
+            </View>
+            <Text style={{ fontSize: 12, color: colors.textTertiary, marginTop: 8 }}>{updateProgress}%</Text>
           </View>
         </View>
       </Modal>

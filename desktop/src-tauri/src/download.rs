@@ -60,3 +60,29 @@ pub async fn download_file(url: String, path: String, state: State<'_, DownloadS
     file.flush().map_err(|e| e.to_string())?;
     Ok(downloaded)
 }
+
+/// 用系统默认程序打开本地文件(应用内更新:下载安装器后启动安装)。
+/// 跨平台:Windows cmd /C start、macOS open、Linux xdg-open。
+#[tauri::command]
+pub async fn open_file(path: String) -> Result<(), String> {
+    let p = std::path::Path::new(&path);
+    if !p.exists() {
+        return Err(format!("文件不存在: {}", path));
+    }
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .args(["/C", "start", "", &path])
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open").arg(&path).spawn().map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open").arg(&path).spawn().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}

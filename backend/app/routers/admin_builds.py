@@ -258,4 +258,6 @@ def _serialize(r: BuildRecord) -> dict:
         "downloads": r.downloads or 0,
         "started_at": r.started_at.isoformat() if r.started_at else None,
         "completed_at": r.completed_at.isoformat() if r.completed_at else None,
+        # 下载地址(应用内更新直接用)
+        "download_url": f"/api/app/releases/download/{r.filename}" if r.filename else None,
     }
