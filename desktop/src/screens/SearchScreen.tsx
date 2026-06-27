@@ -20,8 +20,10 @@ export default function SearchScreen() {
   const [searchHistory, setSearchHistory] = useState<string[]>([])
   const [showHistory, setShowHistory] = useState(true)
   const [favSet, setFavSet] = useState<Set<string>>(new Set())
+  const [suggestions, setSuggestions] = useState<string[]>([])
   const abortRef = useRef<AbortController | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const suggestDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const playSong = usePlayerStore(s => s.playSong)
   const currentSong = usePlayerStore(s => s.currentSong)
@@ -159,16 +161,45 @@ export default function SearchScreen() {
     }
   }, [])
 
+  const fetchSuggestions = useCallback(async (kw: string) => {
+    if (!kw.trim()) { setSuggestions([]); return }
+    try {
+      const token = getCachedAccessToken()
+      const res = await fetch(`${getApiUrl()}/api/search/suggestions?keyword=${encodeURIComponent(kw.trim())}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setSuggestions(Array.isArray(data?.suggestions) ? data.suggestions : Array.isArray(data) ? data : [])
+      }
+    } catch {
+      setSuggestions([])
+    }
+  }, [])
+
   const handleInputChange = (value: string) => {
     setKeyword(value)
     if (debounceRef.current) clearTimeout(debounceRef.current)
+    if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current)
     if (value.trim()) {
-      debounceRef.current = setTimeout(() => doSearch(value), 600)
+      // 联想(250ms,比搜索更快)
+      suggestDebounceRef.current = setTimeout(() => fetchSuggestions(value), 250)
+      // 搜索(600ms)
+      debounceRef.current = setTimeout(() => { setSuggestions([]); doSearch(value) }, 600)
     } else {
+      setSuggestions([])
       setResultsRef([])
       setStreamStatus('')
       setShowHistory(true)
     }
+  }
+
+  const handlePickSuggestion = (s: string) => {
+    setKeyword(s)
+    setSuggestions([])
+    if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    doSearch(s)
   }
 
   const handlePlay = (song: Song) => {
@@ -215,11 +246,26 @@ export default function SearchScreen() {
           />
           {keyword && (
             <button
-              onClick={() => { setKeyword(''); setResults([]); setStreamStatus(''); setShowHistory(true); inputRef.current?.focus() }}
+              onClick={() => { setKeyword(''); setSuggestions([]); setResults([]); setStreamStatus(''); setShowHistory(true); inputRef.current?.focus() }}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text"
             >
               <XCircle size={18} />
             </button>
+          )}
+          {/* 搜索联想下拉 */}
+          {suggestions.length > 0 && !loading && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-30 overflow-hidden">
+              {suggestions.map((s, i) => (
+                <button
+                  key={i}
+                  onClick={() => handlePickSuggestion(s)}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:bg-border-light text-left transition-colors"
+                >
+                  <Search size={14} className="text-text-tertiary flex-shrink-0" />
+                  <span className="truncate">{s}</span>
+                </button>
+              ))}
+            </div>
           )}
         </div>
         {streamStatus && (

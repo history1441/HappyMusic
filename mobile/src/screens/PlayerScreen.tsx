@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { usePlayerStore } from '../stores/playerStore'
 import { useNavigation, useRoute } from '@react-navigation/native'
 import { formatDuration } from '../utils/format'
+import { nextSpeed, formatSpeed } from '@happymusic/common'
 import api from '../services/api'
 import AddToPlaylistModal from '../components/AddToPlaylistModal'
 import PlayingQueueModal from '../components/PlayingQueueModal'
@@ -35,6 +36,11 @@ export default function PlayerScreen() {
   const seekTo = usePlayerStore(s => s.seekTo)
   const setPlayMode = usePlayerStore(s => s.setPlayMode)
   const setShowFullPlayer = usePlayerStore(s => s.setShowFullPlayer)
+  const rate = usePlayerStore(s => s.rate)
+  const setRate = usePlayerStore(s => s.setRate)
+  const abLoop = usePlayerStore(s => s.abLoop)
+  const toggleAbPoint = usePlayerStore(s => s.toggleAbPoint)
+  const clearAb = usePlayerStore(s => s.clearAb)
   const navigation = useNavigation<any>()
   const insets = useSafeAreaInsets()
   const route = useRoute<any>()
@@ -601,6 +607,20 @@ export default function PlayerScreen() {
 
       {/* Lyric button row */}
       <View style={styles.extraControls}>
+        <TouchableOpacity style={styles.extraBtn} onPress={() => { setRate(nextSpeed(rate)); showToast(`倍速 ${formatSpeed(nextSpeed(rate))}`) }}>
+          <Ionicons name="speedometer-outline" size={18} color={rate !== 1 ? '#EC4141' : '#94a3b8'} />
+          <Text style={[styles.extraBtnText, rate !== 1 && styles.extraBtnActive]}>{formatSpeed(rate)}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.extraBtn}
+          onPress={() => toggleAbPoint()}
+          onLongPress={() => { clearAb(); showToast('已清除 AB 复读') }}
+        >
+          <Ionicons name="repeat" size={18} color={abLoop.a != null ? '#EC4141' : '#94a3b8'} />
+          <Text style={[styles.extraBtnText, abLoop.a != null && styles.extraBtnActive]}>
+            {abLoop.b != null ? 'AB中' : abLoop.a != null ? '设B点' : 'AB复读'}
+          </Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.extraBtn} onPress={() => setShowLyrics(!showLyrics)}>
           <Ionicons name={showLyrics ? 'musical-notes' : 'document-text'} size={18} color={showLyrics ? '#EC4141' : '#94a3b8'} />
           <Text style={[styles.extraBtnText, showLyrics && styles.extraBtnActive]}>{showLyrics ? '封面' : '歌词'}</Text>
@@ -793,7 +813,7 @@ const styles = StyleSheet.create({
   timeText: { fontSize: 12, color: '#94a3b8' },
   controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingHorizontal: 24, paddingBottom: 8 },
   playBtn: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#EC4141', justifyContent: 'center', alignItems: 'center', elevation: 4 },
-  extraControls: { flexDirection: 'row', justifyContent: 'center', gap: 32, paddingBottom: 24 },
+  extraControls: { flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center', paddingHorizontal: 8, paddingBottom: 24 },
   extraBtn: { alignItems: 'center', gap: 2 },
   extraBtnText: { fontSize: 11, color: '#94a3b8' },
   extraBtnActive: { color: '#EC4141' },

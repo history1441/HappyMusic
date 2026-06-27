@@ -7,6 +7,13 @@ export {
   formatFileSize, formatBitrate, formatTimestamp,
   validateEmail, sanitizeFilename, formatNumber,
 } from './utils/format'
+export {
+  SPEED_PRESETS, nextSpeed, formatSpeed,
+  TIMER_PRESETS, makeTimerEndTime, isTimerExpired, formatRemaining,
+  NO_AB_LOOP, shouldLoopBack, toggleAbPoint, clearAbLoop,
+  QUALITY_PRESETS, pickQualityUrl,
+} from './utils/playerControls'
+export type { AbLoop, QualityId, QualityPreset } from './utils/playerControls'
 
 // Adapters
 export { setPlatformAdapter, getAdapter } from './adapters'
@@ -26,6 +33,7 @@ export { search, getSuggestions as getSearchSuggestions, refreshUrl } from './se
 export {
   loadPlaylists, getPlaylistDetail, createPlaylist, deletePlaylist,
   addToPlaylist, removeFromPlaylist, getFavorites,
+  exportPlaylist, importPlaylist,
 } from './services/playlistService'
 export { fetchRecent, reportPlay, syncRecentToCloud } from './services/recentService'
 export {

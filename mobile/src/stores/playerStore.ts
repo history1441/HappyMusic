@@ -9,6 +9,7 @@ import { sendPlayerState } from '../services/syncService'
 import { showToast } from '../components/Toast'
 import api from '../services/api'
 import { resetEndDetection, markManualSkip } from '../services/playbackService'
+import { makeTimerEndTime, isTimerExpired, shouldLoopBack, NO_AB_LOOP, type AbLoop } from '@happymusic/common'
 
 const PLAYER_STATE_FILE = `${FileSystem.documentDirectory}player_state.json`
 
@@ -20,13 +21,13 @@ let lastPrecacheTime = 0
 let isPlayerActive = false // Track if player is in use
 let playSongVersion = 0 // 切歌版本号,旧请求在 await 后检查会提前退出
 
-async function savePlayerState(state: { currentSong: Song | null; queue: Song[]; queueIndex: number; playMode: PlayMode; position: number }) {
+async function savePlayerState(state: { currentSong: Song | null; queue: Song[]; queueIndex: number; playMode: PlayMode; position: number; rate?: number }) {
   try {
     await FileSystem.writeAsStringAsync(PLAYER_STATE_FILE, JSON.stringify(state))
   } catch {}
 }
 
-async function loadPlayerState(): Promise<{ currentSong: Song | null; queue: Song[]; queueIndex: number; playMode: PlayMode; position: number } | null> {
+async function loadPlayerState(): Promise<{ currentSong: Song | null; queue: Song[]; queueIndex: number; playMode: PlayMode; position: number; rate?: number } | null> {
   try {
     const info = await FileSystem.getInfoAsync(PLAYER_STATE_FILE)
     if (!info.exists) return null
@@ -57,6 +58,9 @@ interface PlayerState {
   queueIndex: number
   showFullPlayer: boolean
   isBuffering: boolean
+  rate: number
+  timerEndTime: number | null
+  abLoop: AbLoop
   initializePlayer: () => Promise<void>
   playSong: (song: Song, list?: Song[]) => Promise<void>
   togglePlay: () => Promise<void>
@@ -67,12 +71,17 @@ interface PlayerState {
   setShowFullPlayer: (show: boolean) => void
   updateProgress: (position: number, duration: number) => void
   addToNext: (song: Song) => void
+  setRate: (rate: number) => Promise<void>
+  setTimer: (minutes: number | null) => void
+  toggleAbPoint: () => Promise<void>
+  clearAb: () => void
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
   currentSong: null, isPlaying: false, position: 0, duration: 0,
   playMode: 'sequence', queue: [], queueIndex: -1,
   showFullPlayer: false, isBuffering: false,
+  rate: 1.0, timerEndTime: null, abLoop: { ...NO_AB_LOOP },
 
   initializePlayer: async () => {
     const saved = await loadPlayerState()
@@ -85,6 +94,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         playMode: saved.playMode || 'sequence',
         position: pos, duration: saved.currentSong.duration_s || 0,
         isPlaying: false,
+        rate: saved.rate || 1.0,
       })
       try {
         const song = saved.currentSong
@@ -112,9 +122,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             duration: song.duration_s || 0,
           })
           if (pos > 0) await TrackPlayer.seekTo(pos)
+          await TrackPlayer.setRate(saved.rate || 1.0).catch(() => {})
         }
       } catch (e) { console.warn('restore failed:', e) }
       startSaveInterval()
+      startControlInterval()
     }
   },
 
@@ -170,6 +182,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         duration: song.duration_s || 0,
       })
       await TrackPlayer.play()
+      await TrackPlayer.setRate(get().rate).catch(() => {})
 
       let queue: Song[], queueIndex: number
       if (list) {
@@ -193,9 +206,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         position: 0, duration: song.duration_s || 0, isBuffering: false,
       })
 
-      savePlayerState({ currentSong: song, queue, queueIndex, playMode: get().playMode, position: 0 })
+      savePlayerState({ currentSong: song, queue, queueIndex, playMode: get().playMode, position: 0, rate: get().rate })
       precacheUpcoming(queue, queueIndex, get().playMode)
       startSaveInterval()
+      startControlInterval()
     } catch (e) {
       if (myVersion !== playSongVersion) return // 旧请求的报错不打扰用户
       console.warn('TrackPlayer play error:', e)
@@ -283,6 +297,27 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     set({ queue: newQueue })
     precacheUpcoming(newQueue, queueIndex, playMode)
   },
+
+  setRate: async (rate) => {
+    set({ rate })
+    try { await TrackPlayer.setRate(rate) } catch {}
+  },
+
+  setTimer: (minutes) => {
+    set({ timerEndTime: makeTimerEndTime(minutes || 0) })
+  },
+
+  toggleAbPoint: async () => {
+    const { position, abLoop } = get()
+    let next: AbLoop
+    if (abLoop.a == null) next = { a: position, b: null }
+    else if (abLoop.b == null) next = position > abLoop.a ? { a: abLoop.a, b: position } : { a: position, b: null }
+    else next = { a: position, b: null }
+    set({ abLoop: next })
+    if (next.a != null) showToast(next.b != null ? `AB复读: ${Math.round(next.a)}s → ${Math.round(next.b)}s` : `A点: ${Math.round(next.a)}s`)
+  },
+
+  clearAb: () => set({ abLoop: { ...NO_AB_LOOP } }),
 }))
 
 function startSaveInterval() {
@@ -294,14 +329,13 @@ function startSaveInterval() {
       // 如果没有歌曲在播放，清理定时器
       if (!s.currentSong || (!s.isPlaying && s.position === 0)) {
         isPlayerActive = false
-        clearInterval(saveInterval)
-        saveInterval = null
+        if (saveInterval) { clearInterval(saveInterval); saveInterval = null }
         return
       }
       const now = Date.now()
       if (now - lastSaveTime > 5000) {
         lastSaveTime = now
-        if (s.currentSong) savePlayerState({ currentSong: s.currentSong, queue: s.queue, queueIndex: s.queueIndex, playMode: s.playMode, position: s.position })
+        if (s.currentSong) savePlayerState({ currentSong: s.currentSong, queue: s.queue, queueIndex: s.queueIndex, playMode: s.playMode, position: s.position, rate: s.rate })
       }
       if (now - lastReportTime > 30000 && s.currentSong && s.isPlaying) {
         lastReportTime = now
@@ -317,11 +351,41 @@ function startSaveInterval() {
   }, 5000)
 }
 
+// 控制定时器:500ms 精度,负责睡眠定时关闭 + AB 段复读循环
+let controlInterval: ReturnType<typeof setInterval> | null = null
+function startControlInterval() {
+  if (controlInterval) clearInterval(controlInterval)
+  controlInterval = setInterval(async () => {
+    try {
+      const s = usePlayerStore.getState()
+      if (!s.currentSong) return
+      const { position: pos } = await TrackPlayer.getProgress()
+
+      // 睡眠定时到期 → 暂停并清空
+      if (isTimerExpired(s.timerEndTime) && s.isPlaying) {
+        await TrackPlayer.pause()
+        usePlayerStore.setState({ isPlaying: false, timerEndTime: null })
+        showToast('定时关闭已生效')
+        return
+      }
+
+      // AB 段复读:越过 B 点则回到 A 点
+      if (shouldLoopBack(pos, s.abLoop)) {
+        await TrackPlayer.seekTo(s.abLoop.a as number)
+      }
+    } catch {}
+  }, 500)
+}
+
 export function stopPlayerInterval() {
   isPlayerActive = false
   if (saveInterval) {
     clearInterval(saveInterval)
     saveInterval = null
+  }
+  if (controlInterval) {
+    clearInterval(controlInterval)
+    controlInterval = null
   }
 }
 

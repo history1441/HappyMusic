@@ -9,17 +9,20 @@ import api from '../../services/api'
 import {
   Play, Pause, SkipBack, SkipForward, ChevronDown,
   Repeat, Shuffle, Repeat1, Music2, Timer, X, Mic2, Share2,
-  Heart, ListPlus, Sparkles, Brain,
+  Heart, ListPlus, Sparkles, Brain, Gauge,
 } from 'lucide-react'
+import { SPEED_PRESETS, formatSpeed } from '@common/utils/playerControls'
 
 export default function FullPlayer() {
   const {
     currentSong, isPlaying, showFullPlayer,
     togglePlay, next, prev,
     setShowFullPlayer, setTimer, timerMinutes, checkTimer, setPlayMode, playMode,
+    rate, setRate, abLoop, toggleAbPoint, clearAb,
   } = usePlayerStore()
 
   const [showTimer, setShowTimer] = useState(false)
+  const [showSpeed, setShowSpeed] = useState(false)
   const [remaining, setRemaining] = useState<string | null>(null)
   const [dominantColor, setDominantColor] = useState<string>('var(--bg-primary)')
   const [showLyrics, setShowLyrics] = useState(false)
@@ -248,6 +251,40 @@ export default function FullPlayer() {
               display: 'flex', alignItems: 'center', gap: 4,
             }}>
               <Mic2 size={12} /> {showLyrics ? '查看封面' : '查看歌词'}
+            </button>
+            {/* 倍速 */}
+            <div style={{ position: 'relative' }}>
+              <button onClick={() => { setShowSpeed(!showSpeed); setShowTimer(false) }} style={{
+                padding: '6px 16px', background: rate !== 1 ? 'rgba(252,60,68,0.2)' : 'rgba(255,255,255,0.1)', border: 'none',
+                borderRadius: 20, color: rate !== 1 ? '#fff' : 'rgba(255,255,255,0.6)', cursor: 'pointer', fontSize: 12,
+                display: 'flex', alignItems: 'center', gap: 4,
+              }}>
+                <Gauge size={12} /> {formatSpeed(rate)}
+              </button>
+              {showSpeed && (
+                <div style={{
+                  position: 'absolute', bottom: '120%', left: '50%', transform: 'translateX(-50%)',
+                  background: 'rgba(0,0,0,0.9)', borderRadius: 10, padding: 6, display: 'flex', gap: 2, flexWrap: 'wrap',
+                  maxWidth: 220, justifyContent: 'center',
+                }}>
+                  {SPEED_PRESETS.map((s) => (
+                    <button key={s} onClick={() => { setRate(s); setShowSpeed(false) }} style={{
+                      padding: '6px 10px', background: Math.abs(s - rate) < 0.01 ? '#fc3c44' : 'rgba(255,255,255,0.1)',
+                      border: 'none', borderRadius: 8, color: '#fff', cursor: 'pointer', fontSize: 11,
+                    }}>
+                      {formatSpeed(s)}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {/* AB复读 */}
+            <button onClick={() => toggleAbPoint(currentTime)} onDoubleClick={clearAb} style={{
+              padding: '6px 16px', background: abLoop.a != null ? 'rgba(252,60,68,0.2)' : 'rgba(255,255,255,0.1)', border: 'none',
+              borderRadius: 20, color: abLoop.a != null ? '#fff' : 'rgba(255,255,255,0.6)', cursor: 'pointer', fontSize: 12,
+              display: 'flex', alignItems: 'center', gap: 4,
+            }} title="按设置 A/B 点,双击清除">
+              <Repeat size={12} /> {abLoop.b != null ? 'AB中' : abLoop.a != null ? '设B点' : 'AB复读'}
             </button>
             <button onClick={handleAiMood} disabled={aiLoading} style={{
               padding: '6px 16px', background: aiResult ? 'rgba(52,199,89,0.2)' : 'rgba(255,255,255,0.1)', border: 'none',

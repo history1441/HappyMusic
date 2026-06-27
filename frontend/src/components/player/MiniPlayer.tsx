@@ -11,6 +11,7 @@ import type { Song } from '../../types'
 import Equalizer from './Equalizer'
 import { reportPlay } from '../../hooks/usePlayStats'
 import AddToPlaylist from '../AddToPlaylist'
+import { shouldLoopBack } from '@common/utils/playerControls'
 
 const FADE_DURATION = 800
 
@@ -61,7 +62,7 @@ export default function MiniPlayer() {
   const playStartRef = useRef<number>(0)
   const reportedRef = useRef<string>('')
   const {
-    currentSong, isPlaying, volume, playMode,
+    currentSong, isPlaying, volume, playMode, rate,
     togglePlay, next, prev, setVolume, setPlayMode,
     setShowFullPlayer,
   } = usePlayerStore()
@@ -194,11 +195,27 @@ export default function MiniPlayer() {
     if (audioRef.current && !fading) audioRef.current.volume = volume
   }, [volume, fading])
 
+  // 倍速变化时应用到 audio 元素
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.playbackRate = rate
+  }, [rate])
+
   const handleTimeUpdate = () => {
-    if (audioRef.current) setCurrentTime(audioRef.current.currentTime)
+    const audio = audioRef.current
+    if (!audio) return
+    setCurrentTime(audio.currentTime)
+    // AB 段复读:越过 B 点回到 A 点
+    const { abLoop } = usePlayerStore.getState()
+    if (shouldLoopBack(audio.currentTime, abLoop)) {
+      audio.currentTime = abLoop.a as number
+    }
   }
   const handleLoadedMetadata = () => {
-    if (audioRef.current) setDuration(audioRef.current.duration)
+    const audio = audioRef.current
+    if (!audio) return
+    setDuration(audio.duration)
+    // 新歌曲加载后恢复倍速(audio.playbackRate 在换源后会重置为 1)
+    audio.playbackRate = usePlayerStore.getState().rate
   }
   const handleEnded = () => {
     if (currentSong && playStartRef.current) {

@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { getAdapter } from '@common/adapters'
 import { setAudioVolume } from '../adapters/audio'
 import type { Song, PlayMode } from '@common/types'
+import { makeTimerEndTime, isTimerExpired, shouldLoopBack, NO_AB_LOOP, type AbLoop } from '@common/utils/playerControls'
 import api from '@common/services/api'
 import { reportPlay } from '@common/services/statsService'
 import { sendPlayerState } from '@common/services/syncService'
@@ -20,6 +21,9 @@ interface PlayerState {
   isBuffering: boolean
   lyrics: { time: number; text: string; translation?: string }[]
   volume: number
+  rate: number
+  timerEndTime: number | null
+  abLoop: AbLoop
 
   initializePlayer: () => Promise<void>
   playSong: (song: Song, list?: Song[]) => Promise<void>
@@ -32,6 +36,10 @@ interface PlayerState {
   updateProgress: (position: number, duration: number) => void
   addToNext: (song: Song) => void
   playAll: (songs: Song[]) => Promise<void>
+  setRate: (rate: number) => Promise<void>
+  setTimer: (minutes: number | null) => void
+  toggleAbPoint: () => void
+  clearAb: () => void
 }
 
 let progressInterval: ReturnType<typeof setInterval> | null = null
@@ -45,6 +53,7 @@ async function savePlayerState(state: {
   queueIndex: number
   playMode: PlayMode
   position: number
+  rate?: number
 }) {
   try {
     const { load } = await import('@tauri-apps/plugin-store')
@@ -60,6 +69,7 @@ async function loadPlayerState(): Promise<{
   queueIndex: number
   playMode: PlayMode
   position: number
+  rate?: number
 } | null> {
   try {
     const { load } = await import('@tauri-apps/plugin-store')
@@ -102,6 +112,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isBuffering: false,
   lyrics: [],
   volume: 1,
+  rate: 1.0,
+  timerEndTime: null,
+  abLoop: { ...NO_AB_LOOP },
 
   initializePlayer: async () => {
     const saved = await loadPlayerState()
@@ -113,6 +126,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         playMode: saved.playMode || 'sequence',
         position: saved.position || 0,
         duration: saved.currentSong.duration_s || 0,
+        rate: saved.rate || 1.0,
       })
     }
   },
@@ -168,6 +182,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
     try {
       await getAdapter().audio.play({ ...song, download_url: url } as Song)
+      // 应用当前倍速(Howl 每次新建后速率会重置)
+      getAdapter().audio.setRate(get().rate).catch(() => {})
 
       // Record play
       try {
@@ -202,6 +218,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         queueIndex,
         playMode: get().playMode,
         position: 0,
+        rate: get().rate,
       })
       startProgressPolling()
 
@@ -284,6 +301,26 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await get().playSong(songs[0], songs)
     }
   },
+
+  setRate: async (rate) => {
+    set({ rate })
+    try { await getAdapter().audio.setRate(rate) } catch {}
+  },
+
+  setTimer: (minutes) => {
+    set({ timerEndTime: makeTimerEndTime(minutes || 0) })
+  },
+
+  toggleAbPoint: () => {
+    const { position, abLoop } = get()
+    let next: AbLoop
+    if (abLoop.a == null) next = { a: position, b: null }
+    else if (abLoop.b == null) next = position > abLoop.a ? { a: abLoop.a, b: position } : { a: position, b: null }
+    else next = { a: position, b: null }
+    set({ abLoop: next })
+  },
+
+  clearAb: () => set({ abLoop: { ...NO_AB_LOOP } }),
 }))
 
 async function cacheSongInBackground(song: Song, url: string) {
@@ -329,6 +366,18 @@ function startProgressPolling() {
       usePlayerStore.getState().updateProgress(progress.position, progress.duration)
       usePlayerStore.setState({ isBuffering: state === 'buffering' })
 
+      // 睡眠定时到期 → 暂停并清空
+      if (isTimerExpired(s.timerEndTime) && s.isPlaying) {
+        await getAdapter().audio.pause()
+        usePlayerStore.setState({ isPlaying: false, timerEndTime: null })
+        return
+      }
+      // AB 段复读:越过 B 点则回到 A 点
+      if (shouldLoopBack(progress.position, s.abLoop)) {
+        await getAdapter().audio.seekTo(s.abLoop.a as number)
+        return
+      }
+
       const ver = currentSongVersion // Snapshot version
       const reachedEnd = progress.duration > 0 && progress.position >= progress.duration - 0.5
       const notPlaying = state !== 'playing' && state !== 'buffering'
@@ -353,6 +402,7 @@ function startProgressPolling() {
             queueIndex: s.queueIndex,
             playMode: s.playMode,
             position: s.position,
+            rate: s.rate,
           })
         }
       }

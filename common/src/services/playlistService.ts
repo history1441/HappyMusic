@@ -51,3 +51,19 @@ export async function getFavorites(): Promise<Playlist | null> {
   const playlists = await loadPlaylists()
   return playlists.find((p) => p.is_favorite) || null
 }
+
+/** 导出歌单为可移植 JSON(返回后端原始结构) */
+export async function exportPlaylist(playlistId: number): Promise<{
+  name: string; description: string; version: number; songs: any[]
+}> {
+  const { data } = await api.get(`/playlists/${playlistId}/export`)
+  return data
+}
+
+/** 从 JSON 导入歌单,返回新建的歌单 */
+export async function importPlaylist(payload: {
+  name?: string; description?: string; songs: any[]
+}): Promise<Playlist> {
+  const { data } = await api.post('/playlists/import', payload)
+  return data
+}

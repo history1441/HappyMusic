@@ -86,20 +86,12 @@ export default function SettingsScreen() {
     }
   }
 
-  // 音乐服务 - 2x2 网格
+  // 音乐服务 - 2x2 网格(发现类功能已统一在 Home 发现页,避免与 Settings 重复)
   const musicServiceItems = [
     { icon: 'heart', label: '我喜欢的', action: 'favorites' },
     { icon: 'time-outline', label: '最近播放', route: 'RecentPlays' },
     { icon: 'download-outline', label: '下载管理', route: 'DownloadManager' },
     { icon: 'musical-notes-outline', label: '本地音乐', route: 'LocalLibrary' },
-  ]
-
-  // 发现更多 - 2x2 网格
-  const discoverItems = [
-    { icon: 'game-controller-outline', label: '猜歌游戏', route: 'GuessGame' },
-    { icon: 'radio-outline', label: '心情电台', route: 'MoodRadio' },
-    { icon: 'sparkles', label: 'AI推荐', route: 'AIRecommend' },
-    { icon: 'bar-chart-outline', label: '听歌统计', route: 'Stats' },
   ]
 
   const currentLimitLabel = maxMB === 0 ? '不限制' : maxMB >= 1000 ? `${maxMB / 1000} GB` : `${maxMB} MB`
@@ -224,15 +216,6 @@ export default function SettingsScreen() {
         </View>
         <View style={styles.gridRow}>
           {musicServiceItems.slice(2, 4).map((item, i) => renderGridItem(item, i + 2))}
-        </View>
-
-        {/* 发现更多 */}
-        <Text style={[styles.sectionTitle, { marginTop: 8, color: colors.textSecondary }]}>发现更多</Text>
-        <View style={styles.gridRow}>
-          {discoverItems.slice(0, 2).map((item, i) => renderGridItem(item, i))}
-        </View>
-        <View style={styles.gridRow}>
-          {discoverItems.slice(2, 4).map((item, i) => renderGridItem(item, i + 2))}
         </View>
 
         {/* 工具与设置 */}

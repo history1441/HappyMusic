@@ -1,16 +1,30 @@
 import { useNavigate } from 'react-router'
-import { useState, useRef } from 'react'
-import { Play, Pause, SkipForward, SkipBack, Repeat, Shuffle, Repeat1, Disc3, Volume2, Volume1, VolumeX } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { Play, Pause, SkipForward, SkipBack, Repeat, Shuffle, Repeat1, Disc3, Volume2, Volume1, VolumeX, Timer, Gauge } from 'lucide-react'
 import { usePlayerStore } from '../stores/playerStore'
 import { formatDuration } from '@common/utils/format'
+import {
+  SPEED_PRESETS, formatSpeed,
+  TIMER_PRESETS, formatRemaining,
+} from '@common/utils/playerControls'
 import { cn } from '../utils/cn'
 
 export default function MiniPlayer() {
   const navigate = useNavigate()
-  const { currentSong, isPlaying, position, duration, playMode, isBuffering, volume,
-    togglePlay, next, prev, setPlayMode, seekTo, setVolume } = usePlayerStore()
+  const { currentSong, isPlaying, position, duration, playMode, isBuffering, volume, rate, abLoop, timerEndTime,
+    togglePlay, next, prev, setPlayMode, seekTo, setVolume, setRate, toggleAbPoint, clearAb, setTimer } = usePlayerStore()
   const [showVolume, setShowVolume] = useState(false)
+  const [showSpeed, setShowSpeed] = useState(false)
+  const [showTimer, setShowTimer] = useState(false)
+  const [, setNow] = useState(0)
   const volumeRef = useRef<HTMLDivElement>(null)
+
+  // 定时倒计时刷新(500ms)
+  useEffect(() => {
+    if (!timerEndTime) return
+    const id = setInterval(() => setNow(Date.now()), 500)
+    return () => clearInterval(id)
+  }, [timerEndTime])
 
   if (!currentSong) {
     return (
@@ -117,6 +131,82 @@ export default function MiniPlayer() {
           </button>
           <button onClick={next} className="p-1.5 text-text-secondary hover:text-text transition-colors">
             <SkipForward size={18} />
+          </button>
+        </div>
+
+        {/* 工具组:倍速 / 定时 / AB复读 */}
+        <div className="flex items-center gap-1">
+          {/* 倍速 */}
+          <div className="relative">
+            <button
+              onClick={() => { setShowSpeed(!showSpeed); setShowVolume(false); setShowTimer(false) }}
+              className={cn('px-2 py-1 rounded-full text-xs transition-colors', rate !== 1 ? 'text-primary bg-primary/10' : 'text-text-tertiary hover:text-text')}
+              title="播放倍速"
+            >
+              <span className="tabular-nums">{formatSpeed(rate)}</span>
+            </button>
+            {showSpeed && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowSpeed(false)} />
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-card border border-border rounded-lg shadow-lg p-2 z-50 flex flex-col gap-0.5" onClick={e => e.stopPropagation()}>
+                  {SPEED_PRESETS.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => { setRate(s); setShowSpeed(false) }}
+                      className={cn('px-3 py-1.5 rounded text-xs tabular-nums hover:bg-border text-left', Math.abs(s - rate) < 0.01 ? 'text-primary font-semibold' : 'text-text-secondary')}
+                    >
+                      {formatSpeed(s)}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* 定时关闭 */}
+          <div className="relative">
+            <button
+              onClick={() => { setShowTimer(!showTimer); setShowVolume(false); setShowSpeed(false) }}
+              className={cn('p-1.5 rounded-full transition-colors', timerEndTime ? 'text-primary bg-primary/10' : 'text-text-tertiary hover:text-text')}
+              title={timerEndTime ? `定时关闭 ${formatRemaining(timerEndTime) || ''}` : '定时关闭'}
+            >
+              <Timer size={16} />
+            </button>
+            {timerEndTime && (
+              <span className="absolute -top-0.5 -right-0.5 text-[9px] bg-primary text-white rounded px-1 leading-tight tabular-nums">{formatRemaining(timerEndTime)}</span>
+            )}
+            {showTimer && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowTimer(false)} />
+                <div className="absolute bottom-full right-0 mb-2 bg-card border border-border rounded-lg shadow-lg p-2 z-50 grid grid-cols-3 gap-1 w-52" onClick={e => e.stopPropagation()}>
+                  {TIMER_PRESETS.map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => { setTimer(m); setShowTimer(false) }}
+                      className="px-2 py-1.5 rounded text-xs hover:bg-border text-text-secondary"
+                    >
+                      {m}分
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => { setTimer(null); setShowTimer(false) }}
+                    className="col-span-3 px-2 py-1.5 rounded text-xs hover:bg-border text-text-tertiary border-t border-border mt-1"
+                  >
+                    取消定时
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* AB复读 */}
+          <button
+            onClick={() => toggleAbPoint()}
+            onDoubleClick={() => clearAb()}
+            className={cn('p-1.5 rounded-full transition-colors', abLoop.a != null ? 'text-primary bg-primary/10' : 'text-text-tertiary hover:text-text')}
+            title={abLoop.b != null ? `AB复读 ${formatDuration(abLoop.a || 0)}~${formatDuration(abLoop.b)}` : abLoop.a != null ? '再按设B点(双击清除)' : 'AB复读(按设A点)'}
+          >
+            <Repeat size={16} />
           </button>
         </div>
 

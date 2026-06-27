@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { Song, PlayMode } from '../types'
+import { NO_AB_LOOP, type AbLoop } from '@common/utils/playerControls'
 
 interface PlayerState {
   currentSong: Song | null
@@ -11,6 +12,8 @@ interface PlayerState {
   showFullPlayer: boolean
   timerMinutes: number | null
   timerEndTime: number | null
+  rate: number
+  abLoop: AbLoop
 
   play: (song: Song, list?: Song[]) => void
   togglePlay: () => void
@@ -26,6 +29,9 @@ interface PlayerState {
   clearQueue: () => void
   setTimer: (minutes: number | null) => void
   checkTimer: () => boolean
+  setRate: (rate: number) => void
+  toggleAbPoint: (position: number) => void
+  clearAb: () => void
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
@@ -38,6 +44,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   showFullPlayer: false,
   timerMinutes: null,
   timerEndTime: null,
+  rate: parseFloat(localStorage.getItem('playbackRate') || '1'),
+  abLoop: { ...NO_AB_LOOP },
 
   play: (song, list) => {
     if (list) {
@@ -129,4 +137,20 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
     return false
   },
+
+  setRate: (rate) => {
+    localStorage.setItem('playbackRate', String(rate))
+    set({ rate })
+  },
+
+  toggleAbPoint: (position) => {
+    const { abLoop } = get()
+    let next: AbLoop
+    if (abLoop.a == null) next = { a: position, b: null }
+    else if (abLoop.b == null) next = position > abLoop.a ? { a: abLoop.a, b: position } : { a: position, b: null }
+    else next = { a: position, b: null }
+    set({ abLoop: next })
+  },
+
+  clearAb: () => set({ abLoop: { ...NO_AB_LOOP } }),
 }))

@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useIsMobile } from '../hooks/useBreakpoint'
 import api from '../services/api'
 import { usePlayerStore } from '../stores/playerStore'
 import type { Playlist, Song } from '../types'
 import {
   Plus, Heart, ListMusic, Trash2, Share2,
-  Play, Music2, X, ChevronRight, Edit3, Check,
+  Play, Music2, X, ChevronRight, Edit3, Check, Download,
 } from 'lucide-react'
 
 export default function Playlists() {
@@ -56,6 +56,41 @@ export default function Playlists() {
     setImportCode('')
     setShowImport(false)
     fetchPlaylists()
+  }
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // 导出歌单为 JSON 文件(本地下载,可跨账号/跨端迁移)
+  const handleExportJson = async (id: number, name: string) => {
+    try {
+      const { data } = await api.get(`/playlists/${id}/export`)
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${name.replace(/[\\/:*?"<>|]/g, '_')}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      alert('导出失败,请重试')
+    }
+  }
+
+  // 从本地 JSON 文件导入歌单
+  const handleImportJsonFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      const payload = JSON.parse(await file.text())
+      await api.post('/playlists/import', {
+        name: payload.name, description: payload.description || '',
+        songs: Array.isArray(payload.songs) ? payload.songs : [],
+      })
+      fetchPlaylists()
+    } catch {
+      alert('导入失败:文件格式不正确')
+    }
+    e.target.value = ''
   }
 
   const startEdit = (pl: Playlist) => {
@@ -119,6 +154,14 @@ export default function Playlists() {
           }}>
             导入
           </button>
+          <button onClick={() => fileInputRef.current?.click()} title="从 JSON 文件导入歌单" style={{
+            padding: isMobile ? '6px 12px' : '8px 16px', background: 'var(--bg-secondary)',
+            border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+            color: 'var(--text-primary)', cursor: 'pointer', fontSize: 13,
+          }}>
+            导入文件
+          </button>
+          <input ref={fileInputRef} type="file" accept="application/json,.json" onChange={handleImportJsonFile} style={{ display: 'none' }} />
           <button onClick={() => setShowCreate(true)} style={{
             padding: isMobile ? '6px 12px' : '8px 16px', background: 'var(--accent)',
             border: 'none', borderRadius: 'var(--radius-sm)',
@@ -210,6 +253,12 @@ export default function Playlists() {
                     borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-secondary)',
                   }}>
                     <Share2 size={14} />
+                  </button>
+                  <button onClick={() => handleExportJson(activePlaylist.id, activePlaylist.name)} title="导出为 JSON" style={{
+                    padding: '8px 10px', background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-secondary)',
+                  }}>
+                    <Download size={14} />
                   </button>
                   {!activePlaylist.is_favorite && (
                     <button onClick={() => deletePlaylist(activePlaylist.id)} title="删除歌单" style={{

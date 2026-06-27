@@ -1,4 +1,7 @@
+from datetime import datetime
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.models.playlist import Playlist, PlaylistSong
@@ -131,3 +134,89 @@ def remove_song(playlist_id: int, song_id: int, user_id: int = Depends(get_curre
         raise HTTPException(status_code=404, detail="歌曲不存在")
     db.delete(song)
     db.commit()
+
+
+# ==================== 歌单导入 / 导出 ====================
+
+class _ExportSong(BaseModel):
+    song_name: str
+    singers: str = ""
+    album: str = ""
+    ext: str = "mp3"
+    duration: int = 0
+    file_size: str = ""
+    source: str = ""
+    song_identifier: str = ""
+    lyric: str = ""
+    cover_url: str = ""
+
+
+class _ImportPayload(BaseModel):
+    name: Optional[str] = None
+    description: str = ""
+    songs: List[_ExportSong] = []
+
+
+@router.get("/{playlist_id}/export")
+def export_playlist(playlist_id: int, user_id: int = Depends(get_current_user), db: Session = Depends(get_db)):
+    """导出歌单为可移植 JSON(不含用户/自增 id,便于跨账号迁移与备份)。"""
+    pl = _get_playlist_or_404(db, playlist_id, user_id)
+    songs = db.query(PlaylistSong).filter(
+        PlaylistSong.playlist_id == pl.id
+    ).order_by(PlaylistSong.sort_order).all()
+    return {
+        "name": pl.name,
+        "description": pl.description or "",
+        "version": 1,
+        "exported_at": datetime.utcnow().isoformat(),
+        "songs": [
+            {
+                "song_name": s.song_name,
+                "singers": s.singers or "",
+                "album": s.album or "",
+                "ext": s.ext or "mp3",
+                "duration": s.duration or 0,
+                "file_size": s.file_size or "",
+                "source": s.source or "",
+                "song_identifier": s.song_identifier or "",
+                "lyric": getattr(s, "lyric", "") or "",
+                "cover_url": s.cover_url or "",
+            }
+            for s in songs
+        ],
+    }
+
+
+@router.post("/import", response_model=PlaylistResponse, status_code=status.HTTP_201_CREATED)
+def import_playlist(req: _ImportPayload, user_id: int = Depends(get_current_user), db: Session = Depends(get_db)):
+    """从 JSON 导入歌单(创建新歌单,不覆盖既有歌单)。"""
+    name = (req.name or "导入的歌单").strip() or "导入的歌单"
+    pl = Playlist(user_id=user_id, name=name, description=req.description, is_favorite=False)
+    db.add(pl)
+    db.flush()
+    for idx, s in enumerate(req.songs):
+        db.add(PlaylistSong(
+            playlist_id=pl.id,
+            song_name=s.song_name,
+            singers=s.singers,
+            album=s.album,
+            ext=s.ext,
+            duration=s.duration,
+            file_size=s.file_size,
+            source=s.source,
+            song_identifier=s.song_identifier,
+            lyric=s.lyric,
+            cover_url=s.cover_url,
+            sort_order=idx,
+        ))
+    db.commit()
+    db.refresh(pl)
+    songs = db.query(PlaylistSong).filter(
+        PlaylistSong.playlist_id == pl.id
+    ).order_by(PlaylistSong.sort_order).all()
+    return PlaylistResponse(
+        id=pl.id, name=pl.name, description=pl.description, cover=pl.cover,
+        is_favorite=pl.is_favorite, song_count=len(songs),
+        created_at=pl.created_at, updated_at=pl.updated_at,
+        songs=[PlaylistSongResponse.model_validate(s) for s in songs],
+    )
