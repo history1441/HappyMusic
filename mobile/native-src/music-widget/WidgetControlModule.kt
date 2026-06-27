@@ -33,8 +33,9 @@ class WidgetControlModule(private val reactContext: ReactApplicationContext) :
     /** 冷启动:app 未运行时点 widget,Intent 在 getIntent 中。JS 启动后调用一次取回并消费。 */
     @ReactMethod
     fun getInitialAction(promise: Promise) {
-        val action = currentActivity?.intent?.getStringExtra(MusicWidgetProvider.EXTRA_ACTION)
-        currentActivity?.intent?.removeExtra(MusicWidgetProvider.EXTRA_ACTION)
+        val activity = getCurrentActivity()
+        val action = activity?.intent?.getStringExtra(MusicWidgetProvider.EXTRA_ACTION)
+        activity?.intent?.removeExtra(MusicWidgetProvider.EXTRA_ACTION)
         promise.resolve(action)
     }
 
