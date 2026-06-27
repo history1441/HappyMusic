@@ -84,6 +84,10 @@ jobs:
         working-directory: common
         run: npm install --no-audit --no-fund
 
+      - name: Build common (生成 dist,供 desktop @happymusic/common 引用)
+        working-directory: common
+        run: npm run build
+
       - name: Install desktop dependencies
         run: npm install --no-audit --no-fund
 

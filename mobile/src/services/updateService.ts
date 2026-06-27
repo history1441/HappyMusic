@@ -11,10 +11,19 @@ export interface UpdateInfo {
   file_size: number
 }
 
-/** 查询是否有新版本(Android)。 */
+/** 查询是否有新版本(Android)。自动检测设备 ABI 并请求匹配的安装包。 */
 export async function checkUpdate(): Promise<UpdateInfo | null> {
   try {
-    const { data } = await api.get('/app/releases/latest', { params: { platform: 'android' }, timeout: 8000 })
+    // 检测设备首选 ABI(arm64-v8a / armeabi-v7a / x86_64),后端据此返回对应包
+    let abi = ''
+    const ApkInstaller = (NativeModules as any).ApkInstaller
+    if (ApkInstaller?.getDeviceAbi) {
+      try { abi = await ApkInstaller.getDeviceAbi() } catch {}
+    }
+    const params: any = { platform: 'android' }
+    if (abi) params.abi = abi
+
+    const { data } = await api.get('/app/releases/latest', { params, timeout: 8000 })
     if (!data.version) return null
     if (!isNewerVersion(data.version, APP_VERSION)) return null
     return {

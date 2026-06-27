@@ -18,6 +18,13 @@ class ApkInstallerModule(private val ctx: ReactApplicationContext) :
 
     override fun getName() = "ApkInstaller"
 
+    /** 返回设备首选 ABI(如 arm64-v8a),用于下载匹配 CPU 的安装包。 */
+    @ReactMethod
+    fun getDeviceAbi(promise: Promise) {
+        val abis = android.os.Build.SUPPORTED_ABIS
+        promise.resolve(if (abis.isNotEmpty()) abis[0] else "unknown")
+    }
+
     @ReactMethod
     fun installApk(filePath: String, promise: Promise) {
         try {

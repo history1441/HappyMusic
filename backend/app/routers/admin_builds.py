@@ -39,6 +39,19 @@ def _extract_version(filename: str) -> str:
     return m.group(1) if m else "1.0.0"
 
 
+# 已知 ABI(与 CI ABI splits 命名一致)
+KNOWN_ABIS = ("arm64-v8a", "armeabi-v7a", "x86_64", "x86", "universal")
+
+
+def _extract_abi(filename: str) -> str:
+    """从文件名解析 ABI,如 HappyMusic-v1.8.14-android-arm64-v8a.apk → arm64-v8a。
+    无法识别(如 universal 或非分包)返回 "universal"。"""
+    for abi in KNOWN_ABIS:
+        if re.search(rf'[-_.]{re.escape(abi)}[-_.]', filename) or filename.lower().endswith(f"-{abi}.apk"):
+            return abi
+    return "universal"
+
+
 def _guess_content_type(filename: str) -> str:
     ext = os.path.splitext(filename)[1].lower()
     return {
@@ -123,7 +136,7 @@ async def upload_package(
     rec = BuildRecord(
         build_type="upload", version=ver, platform=plat,
         changelog=changelog, is_published=False, status="success",
-        filename=filename, file_size=file_size,
+        filename=filename, abi=_extract_abi(filename), file_size=file_size,
         message=f"已上传 {filename}", completed_at=datetime.now(),
     )
     db.add(rec)
@@ -209,16 +222,38 @@ public_router = APIRouter(prefix="/api/app", tags=["应用更新"])
 
 
 @public_router.get("/releases/latest")
-def get_latest_release(platform: str = "android", db: Session = Depends(get_db)):
-    rec = (
-        db.query(BuildRecord)
-        .filter(BuildRecord.is_published == True, BuildRecord.platform == platform)
-        .order_by(BuildRecord.id.desc())
-        .first()
+def get_latest_release(
+    platform: str = "android",
+    abi: str = "",
+    db: Session = Depends(get_db),
+):
+    """取最新已发布版本。Android 传 abi 时优先返回匹配架构的安装包,无匹配则回退 universal/任意。"""
+    base_q = db.query(BuildRecord).filter(
+        BuildRecord.is_published == True, BuildRecord.platform == platform
     )
-    if not rec:
+    # 先确定最新版本号(取该平台最新一条)
+    latest = base_q.order_by(BuildRecord.id.desc()).first()
+    if not latest:
         return {"version": None}
-    return _serialize(rec)
+
+    if platform == "android" and abi:
+        # 在同版本记录里按 abi 精确匹配
+        match = (
+            base_q.filter(BuildRecord.version == latest.version, BuildRecord.abi == abi)
+            .order_by(BuildRecord.id.desc())
+            .first()
+        )
+        if match:
+            return _serialize(match)
+        # 无精确匹配 → universal
+        universal = (
+            base_q.filter(BuildRecord.version == latest.version, BuildRecord.abi == "universal")
+            .order_by(BuildRecord.id.desc())
+            .first()
+        )
+        if universal:
+            return _serialize(universal)
+    return _serialize(latest)
 
 
 @public_router.get("/releases")
@@ -254,6 +289,7 @@ def _serialize(r: BuildRecord) -> dict:
         "status": r.status,
         "message": r.message or "",
         "filename": r.filename or "",
+        "abi": r.abi or "universal",
         "file_size": r.file_size,
         "downloads": r.downloads or 0,
         "started_at": r.started_at.isoformat() if r.started_at else None,

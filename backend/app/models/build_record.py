@@ -17,6 +17,7 @@ class BuildRecord(Base):
     message: Mapped[str] = mapped_column(Text, default="")
     log: Mapped[str] = mapped_column(Text, default="")
     filename: Mapped[str] = mapped_column(String(255), default="")
+    abi: Mapped[str] = mapped_column(String(20), default="")  # arm64-v8a / armeabi-v7a / x86_64 / universal(空=通用/未知)
     file_size: Mapped[int] = mapped_column(Integer, default=0)
     downloads: Mapped[int] = mapped_column(Integer, default=0)
     started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
