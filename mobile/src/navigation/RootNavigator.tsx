@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useAuthStore } from '../stores/authStore'
 import { usePlayerStore } from '../stores/playerStore'
 import { useTheme } from '../hooks/useTheme'
+import { useWidgetControl } from '../hooks/useWidgetControl'
 import LoginScreen from '../screens/LoginScreen'
 import QRLoginScreen from '../screens/QRLoginScreen'
 import HomeScreen from '../screens/HomeScreen'
@@ -169,6 +170,8 @@ function MainTabs() {
 export default function RootNavigator() {
   const { token, isLoading, user } = useAuthStore()
   const { colors } = useTheme()
+  // Android 桌面小组件控制桥接(非 Android 自动 no-op)
+  useWidgetControl()
 
   if (isLoading) {
     return (
