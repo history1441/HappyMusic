@@ -11,6 +11,7 @@ import * as FileSystem from 'expo-file-system/legacy'
 import { getApiUrl, saveApiUrl, checkBackendReachable, APP_VERSION } from '../utils/constants'
 import { useCacheLimitStore } from '../stores/cacheLimitStore'
 import { useComfortStore, TTS_VOICES } from '../stores/comfortStore'
+import { useQualityStore, QUALITY_PRESETS } from '@happymusic/common'
 import api from '../services/api'
 import ChangePasswordModal from '../components/ChangePasswordModal'
 
@@ -21,6 +22,7 @@ export default function SettingsScreen() {
   const { colors, isDark } = useTheme()
   const { maxMB, setLimit } = useCacheLimitStore()
   const { enabled: comfortEnabled, setEnabled: setComfortEnabled, voice: comfortVoice, setVoice: setComfortVoice } = useComfortStore()
+  const { quality, setQuality } = useQualityStore()
   const insets = useSafeAreaInsets()
   const [showChangePwd, setShowChangePwd] = useState(false)
   const [showApiConfig, setShowApiConfig] = useState(false)
@@ -29,6 +31,7 @@ export default function SettingsScreen() {
   const [showCacheLimit, setShowCacheLimit] = useState(false)
   const [showVoicePicker, setShowVoicePicker] = useState(false)
   const [showThemePicker, setShowThemePicker] = useState(false)
+  const [showQualityPicker, setShowQualityPicker] = useState(false)
   const [freeSpaceMB, setFreeSpaceMB] = useState(10000) // 默认 10GB
   const [cacheInputGB, setCacheInputGB] = useState(maxMB === 0 ? '' : String(maxMB / 1000))
 
@@ -102,6 +105,7 @@ export default function SettingsScreen() {
     { icon: 'qr-code-outline', label: '扫一扫', route: 'ScanQR' },
     { icon: 'document-attach-outline', label: '本地导入', route: 'LocalFileImport' },
     { icon: 'moon-outline', label: '外观主题', action: 'themeMode' },
+    { icon: 'film-outline', label: `音质偏好 · ${quality === 'standard' ? '标准' : quality === 'lossless' ? '无损' : '高品质'}`, action: 'qualityPicker' },
     { icon: 'key-outline', label: '修改密码', action: 'changePwd' },
     { icon: 'server-outline', label: '服务器地址', action: 'apiConfig' },
     { icon: 'musical-note-outline', label: '音乐源管理', route: 'SourceManager' },
@@ -116,6 +120,7 @@ export default function SettingsScreen() {
   const handleItemPress = (item: { action?: string; route?: string }) => {
     if (item.action === 'changePwd') setShowChangePwd(true)
     else if (item.action === 'themeMode') setShowThemePicker(true)
+    else if (item.action === 'qualityPicker') setShowQualityPicker(true)
     else if (item.action === 'cleanup') handleCleanup()
     else if (item.action === 'apiConfig') {
       setApiUrlInput(getApiUrl())
@@ -442,6 +447,53 @@ export default function SettingsScreen() {
             <TouchableOpacity
               style={{ marginTop: 8, height: 44, justifyContent: 'center', alignItems: 'center', borderRadius: 8, backgroundColor: colors.borderLight }}
               onPress={() => setShowThemePicker(false)}
+            >
+              <Text style={{ color: colors.textSecondary }}>关闭</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 音质偏好选择弹窗 */}
+      <Modal visible={showQualityPicker} transparent animationType="slide">
+        <View style={{ flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.4)', padding: 24 }}>
+          <View style={{ backgroundColor: colors.card, borderRadius: 12, padding: 20 }}>
+            <Text style={{ fontSize: 17, fontWeight: '600', marginBottom: 4, color: colors.text }}>音质偏好</Text>
+            <Text style={{ fontSize: 13, color: colors.textSecondary, marginBottom: 16 }}>影响搜索结果排序(同一歌曲多版本时)</Text>
+            <View style={{ gap: 4 }}>
+              {QUALITY_PRESETS.map((q) => {
+                const selected = quality === q.id
+                return (
+                  <TouchableOpacity
+                    key={q.id}
+                    style={{
+                      flexDirection: 'row', alignItems: 'center',
+                      paddingVertical: 14, paddingHorizontal: 14, borderRadius: 10,
+                      backgroundColor: selected ? colors.primaryLight : colors.background,
+                      borderWidth: 1, borderColor: selected ? colors.primary : colors.border,
+                      marginBottom: 8,
+                    }}
+                    onPress={() => { setQuality(q.id); setShowQualityPicker(false) }}
+                  >
+                    <View style={{
+                      width: 36, height: 36, borderRadius: 18,
+                      backgroundColor: selected ? colors.primary : colors.borderLight,
+                      justifyContent: 'center', alignItems: 'center',
+                    }}>
+                      <Ionicons name="film-outline" size={16} color={selected ? '#fff' : colors.textSecondary} />
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <Text style={{ fontSize: 15, fontWeight: selected ? '600' : '400', color: selected ? colors.primary : colors.text }}>{q.label}</Text>
+                      <Text style={{ fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>{q.desc}</Text>
+                    </View>
+                    {selected && <Ionicons name="checkmark-circle" size={22} color={colors.primary} />}
+                  </TouchableOpacity>
+                )
+              })}
+            </View>
+            <TouchableOpacity
+              style={{ marginTop: 8, height: 44, justifyContent: 'center', alignItems: 'center', borderRadius: 8, backgroundColor: colors.borderLight }}
+              onPress={() => setShowQualityPicker(false)}
             >
               <Text style={{ color: colors.textSecondary }}>关闭</Text>
             </TouchableOpacity>

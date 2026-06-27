@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { getApiUrl, getCachedAccessToken } from '@common/services/api'
+import { useQualityStore } from '@common/stores/qualityStore'
 import { getSelectedSources, loadSourcesFromBackend } from '../services/sourceService'
 import { addToFavorites, removeFromFavorites, loadPlaylistsCached, getFavPlaylistId } from '../services/playlistService'
 import { addSearchHistory, getSearchHistory, clearSearchHistory } from '../services/searchHistoryService'
@@ -74,7 +75,7 @@ export default function SearchScreen() {
     try {
       const token = getCachedAccessToken()
       const sources = await getSelectedSources()
-      const body: any = { keyword: kw.trim() }
+      const body: any = { keyword: kw.trim(), quality: useQualityStore.getState().quality }
       if (sources.length > 0) body.sources = sources
 
       const url = `${getApiUrl()}/api/search/stream`

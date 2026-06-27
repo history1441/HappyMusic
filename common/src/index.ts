@@ -23,6 +23,7 @@ export type { PlatformAdapter, StorageAdapter, AudioAdapter, DatabaseAdapter, Fi
 export { useThemeStore } from './stores/themeStore'
 export type { ThemeMode } from './stores/themeStore'
 export { useAuthStore } from './stores/authStore'
+export { useQualityStore } from './stores/qualityStore'
 
 // Services
 export { default as api, getApiUrl, setApiUrl, loadSavedApiUrl, saveApiUrl, initTokenCache, getCachedAccessToken, getCachedRefreshToken, getCachedUser, setTokenCache, clearTokenCache } from './services/api'

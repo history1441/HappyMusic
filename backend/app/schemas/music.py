@@ -33,6 +33,7 @@ class SearchRequest(BaseModel):
     sources: Optional[list[str]] = None
     page: int = 1
     page_size: int = 20
+    quality: Optional[str] = "high"
 
 
 class SearchResponse(BaseModel):

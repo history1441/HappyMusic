@@ -30,6 +30,45 @@ def _get_actual_sources(sources: list[str] | None = None) -> list[str]:
     return [SOURCE_NAME_MAP[s] for s in settings.MUSICDL_SOURCES if s in SOURCE_NAME_MAP]
 
 
+LOSSLESS_EXTS = {"flac", "ape", "wav", "alac", "dsd", "dsf"}
+
+
+def _parse_size_bytes(size_str) -> float:
+    """解析 file_size 字符串('3.2M'/'1024K'/'5MB')为字节数,用于音质软排序。"""
+    if not size_str:
+        return 0.0
+    s = str(size_str).strip().upper().replace("B", "")
+    try:
+        if s.endswith(("K",)):
+            return float(s[:-1]) * 1024
+        if s.endswith(("M",)):
+            return float(s[:-1]) * 1024 * 1024
+        if s.endswith(("G",)):
+            return float(s[:-1]) * 1024 * 1024 * 1024
+        return float(s)
+    except Exception:
+        return 0.0
+
+
+def _quality_sort_key(song: dict, quality: str):
+    """音质软排序键(配合 reverse=True):
+    - lossless: 无损格式(flac 等)优先,再按体积降序
+    - high:     体积大的高码率版本优先
+    - standard: 非无损优先(省流),再按体积升序
+    无效下载地址始终排后。
+    """
+    valid = 1 if song.get("with_valid_download_url") else 0
+    ext = (song.get("ext") or "mp3").lower()
+    size = _parse_size_bytes(song.get("file_size"))
+    is_lossless = 1 if ext in LOSSLESS_EXTS else 0
+    if quality == "lossless":
+        return (valid, is_lossless, size)
+    if quality == "standard":
+        return (valid, 0 if is_lossless else 1, -size)
+    # high(默认)
+    return (valid, size)
+
+
 def _song_to_dict(song_raw, source_name: str) -> dict | None:
     """将 musicdl 原始歌曲对象转为 dict，处理类型转换"""
     try:
@@ -162,7 +201,8 @@ async def search(
 ):
     cached = get_cached_search(req.keyword, req.sources)
     if cached:
-        all_songs = cached
+        quality = (req.quality or "high").lower()
+        all_songs = sorted(cached, key=lambda s: _quality_sort_key(s, quality), reverse=True)
     else:
         loop = asyncio.get_event_loop()
         actual_sources = _get_actual_sources(req.sources)
@@ -185,7 +225,8 @@ async def search(
         all_songs: list[dict] = []
         for songs in results:
             all_songs.extend(songs)
-        all_songs.sort(key=lambda s: s.get("with_valid_download_url", False), reverse=True)
+        quality = (req.quality or "high").lower()
+        all_songs.sort(key=lambda s: _quality_sort_key(s, quality), reverse=True)
         if all_songs:
             set_cached_search(req.keyword, all_songs, req.sources)
 
@@ -214,6 +255,7 @@ async def search_stream(
 ):
     """SSE 流式搜索:优先返回缓存,未命中则逐源推送(客户端断开自动取消后台任务)"""
     actual_sources = _get_actual_sources(req.sources)
+    quality = (req.quality or "high").lower()
 
     async def event_generator():
         # 先检查缓存
@@ -227,6 +269,7 @@ async def search_stream(
                 source_groups[src].append(song)
 
             for src, songs in source_groups.items():
+                songs.sort(key=lambda s: _quality_sort_key(s, quality), reverse=True)
                 event_data = {
                     "source": src,
                     "source_display": SOURCE_DISPLAY_MAP.get(src, src),
@@ -287,11 +330,12 @@ async def search_stream(
             all_songs.extend(songs)
             source_counts[source_name] = len(songs)
 
+            sorted_songs = sorted(songs, key=lambda s: _quality_sort_key(s, quality), reverse=True)
             event_data = {
                 "source": source_name,
                 "source_display": SOURCE_DISPLAY_MAP.get(source_name, source_name),
-                "songs": songs,
-                "count": len(songs),
+                "songs": sorted_songs,
+                "count": len(sorted_songs),
                 "elapsed": elapsed,
                 "total_so_far": len(all_songs),
             }
@@ -302,7 +346,7 @@ async def search_stream(
             if not t.done():
                 t.cancel()
 
-        all_songs.sort(key=lambda s: s.get("with_valid_download_url", False), reverse=True)
+        all_songs.sort(key=lambda s: _quality_sort_key(s, quality), reverse=True)
 
         if all_songs:
             set_cached_search(req.keyword, all_songs, req.sources)

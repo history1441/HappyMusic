@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './stores/authStore'
 import { useThemeStore } from './stores/themeStore'
 import { useAdminAuthStore } from './stores/adminAuthStore'
+import { useQualityStore } from '@common/stores/qualityStore'
 import Layout from './components/Layout'
 import AdminLayout from './components/admin/AdminLayout'
 
@@ -85,6 +86,7 @@ export default function App() {
   useEffect(() => {
     initTheme()
     initAuth()
+    useQualityStore.getState().init()
   }, [])
 
   return (

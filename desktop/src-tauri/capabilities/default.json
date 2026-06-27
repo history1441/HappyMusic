@@ -39,6 +39,12 @@
     "http:allow-fetch-read-body",
     "http:allow-fetch-send",
     "process:default",
-    "updater:default"
+    "updater:default",
+    "core:window:allow-set-always-on-top",
+    "core:window:allow-set-size",
+    "core:window:allow-set-decorations",
+    "core:window:allow-set-skip-taskbar",
+    "core:window:allow-set-focus",
+    "core:window:allow-show"
   ]
 }

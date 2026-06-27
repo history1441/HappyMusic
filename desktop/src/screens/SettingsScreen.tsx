@@ -6,6 +6,8 @@ import api, {
   getCachedUser,
   clearTokenCache,
 } from '@common/services/api'
+import { useQualityStore } from '@common/stores/qualityStore'
+import { QUALITY_PRESETS } from '@common/utils/playerControls'
 import { showToast } from '../components/Toast'
 import { cn } from '../utils/cn'
 import {
@@ -31,6 +33,8 @@ import {
   RefreshCw,
   X,
   Loader2,
+  Film,
+  Check,
 } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
@@ -55,6 +59,7 @@ const iconMap: Record<string, React.ComponentType<{ size?: number; className?: s
   'list-outline': History,
   'trash-outline': Trash2,
   'folder-outline': HardDrive,
+  'film-outline': Film,
 }
 
 // ---------------------------------------------------------------------------
@@ -82,6 +87,8 @@ export default function SettingsScreen() {
   const navigate = useNavigate()
   const user = getCachedUser()
   const [dark, setDark] = useState(isDarkMode())
+  const { quality, setQuality } = useQualityStore()
+  const [showQualityPicker, setShowQualityPicker] = useState(false)
 
   const [showChangePwd, setShowChangePwd] = useState(false)
   const [changePwdLoading, setChangePwdLoading] = useState(false)
@@ -185,11 +192,12 @@ export default function SettingsScreen() {
     { icon: 'bar-chart-outline', label: '听歌统计', route: '/stats' },
   ]
 
-  type SettingAction = 'toggleTheme' | 'changePwd' | 'apiConfig' | 'cleanup'
+  type SettingAction = 'toggleTheme' | 'changePwd' | 'apiConfig' | 'cleanup' | 'qualityPicker'
   const toolSettingsItems: { icon: string; label: string; route?: string; action?: SettingAction }[] = [
     { icon: 'cut-outline', label: '铃声制作', route: '/ringtone' },
     { icon: 'document-attach-outline', label: '本地导入', route: '/local/import' },
     { icon: 'moon-outline', label: dark ? '浅色模式' : '深色模式', action: 'toggleTheme' },
+    { icon: 'film-outline', label: `音质偏好 · ${quality === 'standard' ? '标准' : quality === 'lossless' ? '无损' : '高品质'}`, action: 'qualityPicker' },
     { icon: 'key-outline', label: '修改密码', action: 'changePwd' },
     { icon: 'server-outline', label: '服务器地址', action: 'apiConfig' },
     { icon: 'musical-note-outline', label: '音乐源管理', route: '/sources' },
@@ -201,6 +209,7 @@ export default function SettingsScreen() {
   const handleItemPress = (item: { action?: string; route?: string }) => {
     switch (item.action) {
       case 'toggleTheme': handleToggleDark(); break
+      case 'qualityPicker': setShowQualityPicker(true); break
       case 'changePwd': setShowChangePwd(true); break
       case 'cleanup': handleCleanup(); break
       case 'apiConfig':
@@ -405,6 +414,36 @@ export default function SettingsScreen() {
               {apiChecking && <Loader2 size={14} className="animate-spin" />}
               {apiChecking ? '测试中...' : '保存'}
             </button>
+          </div>
+        </ModalOverlay>
+      )}
+
+      {/* 音质偏好 */}
+      {showQualityPicker && (
+        <ModalOverlay onClose={() => setShowQualityPicker(false)}>
+          <h3 className="text-lg font-semibold mb-2">音质偏好</h3>
+          <p className="text-xs text-text-tertiary mb-3">影响搜索结果排序(同一歌曲存在多版本时)</p>
+          <div className="flex flex-col gap-2">
+            {QUALITY_PRESETS.map((q) => {
+              const selected = quality === q.id
+              return (
+                <button
+                  key={q.id}
+                  onClick={() => { setQuality(q.id); setShowQualityPicker(false); showToast(`音质: ${q.label}`, 'success') }}
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-2.5 rounded-lg border text-left transition-colors',
+                    selected ? 'border-primary bg-primary-light' : 'border-border hover:bg-border-light'
+                  )}
+                >
+                  <Film size={18} className={selected ? 'text-primary' : 'text-text-tertiary'} />
+                  <div className="flex-1">
+                    <div className={cn('text-sm', selected ? 'text-primary font-medium' : 'text-text')}>{q.label}</div>
+                    <div className="text-xs text-text-tertiary">{q.desc}</div>
+                  </div>
+                  {selected && <Check size={16} className="text-primary" />}
+                </button>
+              )
+            })}
           </div>
         </ModalOverlay>
       )}

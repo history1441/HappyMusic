@@ -7,6 +7,7 @@ import { useDownloadStore } from '../stores/downloadStore'
 import { getSongMeta, songId } from '../hooks/useDB'
 import { getSearchHistory, addSearchHistory, clearSearchHistory, removeSearchHistory } from '../hooks/useSearchHistory'
 import { parseMusicUrl, type ParsedMusicUrl } from '../hooks/useUrlParser'
+import { useQualityStore } from '@common/stores/qualityStore'
 import type { Song } from '../types'
 import { Search as SearchIcon, Play, Plus, Download, Music2, Check, Loader, X, Clock, TrendingUp, Link } from 'lucide-react'
 import AddToPlaylist from '../components/AddToPlaylist'
@@ -138,6 +139,7 @@ export default function Search() {
       const { data } = await api.post('/search', {
         keyword: parsedUrl.id,
         sources: [parsedUrl.platform],
+        quality: useQualityStore.getState().quality,
         page: 1,
         page_size: PAGE_SIZE,
       })
@@ -159,6 +161,7 @@ export default function Search() {
     try {
       const { data } = await api.post('/search', {
         keyword,
+        quality: useQualityStore.getState().quality,
         page: nextPage,
         page_size: PAGE_SIZE,
       })
@@ -196,7 +199,7 @@ export default function Search() {
     // 保存用户源选择
     saveSources(selectedSources)
 
-    const body: Record<string, any> = { keyword: q }
+    const body: Record<string, any> = { keyword: q, quality: useQualityStore.getState().quality }
     if (selectedSources.length > 0 && selectedSources.length < availableSources.length) {
       body.sources = selectedSources
     }
@@ -267,7 +270,7 @@ export default function Search() {
     } catch {
       // Fallback to regular search
       try {
-        const { data } = await api.post('/search', { keyword: q, page: 1, page_size: PAGE_SIZE })
+        const { data } = await api.post('/search', { keyword: q, quality: useQualityStore.getState().quality, page: 1, page_size: PAGE_SIZE })
         setResults(data.results)
         setHasMore(data.has_more)
         setSearched(true)
@@ -309,9 +312,49 @@ export default function Search() {
   const showHistory = showDropdown && !keyword.trim() && history.length > 0
   const showSuggestions = showDropdown && keyword.trim() && suggestions.length > 0
 
+  const [showQuality, setShowQuality] = useState(false)
+  const qualityLabel = useQualityStore.getState().quality === 'standard' ? '标准' : useQualityStore.getState().quality === 'lossless' ? '无损' : '高品质'
+  const qualityOpts: { id: 'standard' | 'high' | 'lossless'; label: string }[] = [
+    { id: 'standard', label: '标准(省流)' },
+    { id: 'high', label: '高品质(推荐)' },
+    { id: 'lossless', label: '无损(FLAC)' },
+  ]
+
   return (
     <div style={{ padding: isMobile ? '16px' : '24px 32px', paddingBottom: isMobile ? 132 : 120 }}>
       <form onSubmit={(e) => handleSearch(e)} style={{ display: 'flex', gap: isMobile ? 8 : 12, marginBottom: isMobile ? 16 : 32 }}>
+        {/* 音质偏好 */}
+        <div style={{ position: 'relative', flexShrink: 0 }}>
+          <button type="button" onClick={() => setShowQuality(!showQuality)} style={{
+            height: '100%', padding: isMobile ? '0 10px' : '0 14px', background: 'var(--bg-secondary)',
+            border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+            color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 13, whiteSpace: 'nowrap',
+            display: 'flex', alignItems: 'center', gap: 4,
+          }} title="音质偏好">
+            <Music2 size={14} /> {qualityLabel}
+          </button>
+          {showQuality && (
+            <>
+              <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setShowQuality(false)} />
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 50,
+                background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+                boxShadow: 'var(--shadow-lg)', padding: 4, minWidth: 150,
+              }}>
+                {qualityOpts.map((o) => {
+                  const sel = useQualityStore.getState().quality === o.id
+                  return (
+                    <button key={o.id} type="button" onClick={() => { useQualityStore.getState().setQuality(o.id); setShowQuality(false) }} style={{
+                      display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px',
+                      background: sel ? 'var(--accent-light)' : 'none', border: 'none', borderRadius: 6,
+                      color: sel ? 'var(--accent)' : 'var(--text-primary)', cursor: 'pointer', fontSize: 13,
+                    }}>{o.label}</button>
+                  )
+                })}
+              </div>
+            </>
+          )}
+        </div>
         <div style={{ flex: 1, position: 'relative' }} ref={dropdownRef}>
           <SearchIcon size={18} style={{
             position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',

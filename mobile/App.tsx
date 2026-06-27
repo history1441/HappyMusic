@@ -184,6 +184,11 @@ export default function App() {
           const { useThemeStore } = require('./src/stores/themeStore')
           await useThemeStore.getState().init()
         } catch {}
+        // 加载音质偏好
+        try {
+          const { useQualityStore } = require('@happymusic/common')
+          await useQualityStore.getState().init()
+        } catch {}
         const reachable = await checkBackendReachable()
         if (!reachable) {
           setAppState('config')

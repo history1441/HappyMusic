@@ -13,6 +13,7 @@ import SongContextMenu from '../components/SongContextMenu'
 import { showToast } from '../components/Toast'
 import { useTheme } from '../hooks/useTheme'
 import { getSelectedSources } from '../services/sourceService'
+import { useQualityStore } from '@happymusic/common'
 import type { Song } from '../types'
 
 export default function SearchScreen() {
@@ -183,7 +184,7 @@ export default function SearchScreen() {
     // 每次搜索前重新读取最新的用户源偏好
     const sources = await getSelectedSources()
     setUserSources(sources)
-    const body: any = { keyword: q }
+    const body: any = { keyword: q, quality: useQualityStore.getState().quality }
     if (sources.length > 0) body.sources = sources
 
     try {

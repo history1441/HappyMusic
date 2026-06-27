@@ -1,7 +1,8 @@
 import { useNavigate } from 'react-router'
 import { useState, useRef, useEffect } from 'react'
-import { Play, Pause, SkipForward, SkipBack, Repeat, Shuffle, Repeat1, Disc3, Volume2, Volume1, VolumeX, Timer, Gauge } from 'lucide-react'
+import { Play, Pause, SkipForward, SkipBack, Repeat, Shuffle, Repeat1, Disc3, Volume2, Volume1, VolumeX, Timer, Gauge, Pin, Minimize2 } from 'lucide-react'
 import { usePlayerStore } from '../stores/playerStore'
+import { useWindowStore } from '../stores/windowStore'
 import { formatDuration } from '@common/utils/format'
 import {
   SPEED_PRESETS, formatSpeed,
@@ -13,6 +14,7 @@ export default function MiniPlayer() {
   const navigate = useNavigate()
   const { currentSong, isPlaying, position, duration, playMode, isBuffering, volume, rate, abLoop, timerEndTime,
     togglePlay, next, prev, setPlayMode, seekTo, setVolume, setRate, toggleAbPoint, clearAb, setTimer } = usePlayerStore()
+  const { alwaysOnTop, toggleAlwaysOnTop, enterMini } = useWindowStore()
   const [showVolume, setShowVolume] = useState(false)
   const [showSpeed, setShowSpeed] = useState(false)
   const [showTimer, setShowTimer] = useState(false)
@@ -207,6 +209,24 @@ export default function MiniPlayer() {
             title={abLoop.b != null ? `AB复读 ${formatDuration(abLoop.a || 0)}~${formatDuration(abLoop.b)}` : abLoop.a != null ? '再按设B点(双击清除)' : 'AB复读(按设A点)'}
           >
             <Repeat size={16} />
+          </button>
+        </div>
+
+        {/* 窗口控制:置顶 + 迷你模式 */}
+        <div className="flex items-center">
+          <button
+            onClick={toggleAlwaysOnTop}
+            title={alwaysOnTop ? '取消置顶' : '窗口置顶'}
+            className={cn('p-1.5 rounded-full transition-colors', alwaysOnTop ? 'text-primary' : 'text-text-tertiary hover:text-text')}
+          >
+            <Pin size={16} fill={alwaysOnTop ? 'currentColor' : 'none'} />
+          </button>
+          <button
+            onClick={enterMini}
+            title="迷你播放器(置顶小窗)"
+            className="p-1.5 rounded-full text-text-tertiary hover:text-text transition-colors"
+          >
+            <Minimize2 size={16} />
           </button>
         </div>
 

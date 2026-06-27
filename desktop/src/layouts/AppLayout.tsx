@@ -2,12 +2,14 @@ import { Outlet } from 'react-router'
 import { useLocation, useNavigate } from 'react-router'
 import { useState, useEffect } from 'react'
 import { useDesktopSync } from '../hooks/useDesktopSync'
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
+import { useWindowStore } from '../stores/windowStore'
 import {
   Home, Search, Disc3, Library, Settings,
   Download, FolderOpen, BarChart3,
   Flame, Radio, Sparkles, Gamepad2,
   Clock, Heart, Scissors, Server, History,
-  HardDrive, Bell,
+  HardDrive, Bell, Maximize2,
 } from 'lucide-react'
 import MiniPlayer from '../components/MiniPlayer'
 import { cn } from '../utils/cn'
@@ -41,6 +43,9 @@ const navItems = [
 export default function AppLayout() {
   // Initialize WebSocket sync
   useDesktopSync()
+  // 应用内键盘快捷键(Space 播放/暂停,Ctrl+→/← 上下首)
+  useKeyboardShortcuts()
+  const miniMode = useWindowStore(s => s.miniMode)
 
   const location = useLocation()
   const navigate = useNavigate()
@@ -63,6 +68,22 @@ export default function AppLayout() {
   }, [])
 
   return (
+    <>
+      {/* 迷你播放器模式:无边框小窗,仅显示 MiniPlayer + 展开按钮 */}
+      {miniMode && (
+        <div className="h-full relative bg-card" data-tauri-drag-region>
+          <MiniPlayer />
+          <button
+            onClick={() => useWindowStore.getState().exitMini()}
+            className="absolute top-1 right-1 z-10 p-1 text-text-tertiary hover:text-text rounded"
+            title="退出迷你模式"
+          >
+            <Maximize2 size={14} />
+          </button>
+        </div>
+      )}
+
+      {!miniMode && (
     <div className="flex h-full">
       {/* Sidebar */}
       <aside className="w-60 flex-shrink-0 border-r border-border bg-card flex flex-col overflow-hidden">
@@ -153,5 +174,7 @@ export default function AppLayout() {
         </div>
       )}
     </div>
+      )}
+    </>
   )
 }
