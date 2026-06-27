@@ -55,7 +55,18 @@ export default function PlayerScreen() {
         </button>
         <div className="text-center">
           <p className="text-sm font-medium">{currentSong?.song_name || '未在播放'}</p>
-          <p className="text-xs text-text-secondary">{currentSong?.singers || ''}</p>
+          <p className="text-xs text-text-secondary">
+            {currentSong?.singers ? (
+              <button onClick={() => navigate(`/discover?type=artist&name=${encodeURIComponent(currentSong.singers)}`)} className="hover:text-primary transition-colors">
+                {currentSong.singers}
+              </button>
+            ) : ''}
+            {currentSong?.album ? (
+              <button onClick={() => navigate(`/discover?type=album&name=${encodeURIComponent(currentSong.album)}`)} className="ml-1 hover:text-primary transition-colors">
+                · {currentSong.album}
+              </button>
+            ) : null}
+          </p>
         </div>
         <div className="w-8" />
       </div>

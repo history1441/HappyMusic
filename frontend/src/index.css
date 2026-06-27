@@ -101,3 +101,13 @@ a {
 a:hover {
   color: var(--accent-hover);
 }
+
+/* 骨架屏 shimmer 动画 */
+@keyframes hm-skeleton-shimmer {
+  0% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+  100% { opacity: 0.4; }
+}
+.hm-skeleton {
+  animation: hm-skeleton-shimmer 1.4s ease-in-out infinite;
+}

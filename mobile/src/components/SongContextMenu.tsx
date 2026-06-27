@@ -3,6 +3,7 @@ import {
   Modal, View, Text, TouchableOpacity, StyleSheet, Pressable,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import { useNavigation } from '@react-navigation/native'
 import type { Song } from '../types'
 import AddToPlaylistModal from './AddToPlaylistModal'
 import { usePlayerStore } from '../stores/playerStore'
@@ -18,6 +19,7 @@ interface Props {
 
 export default function SongContextMenu({ song, visible, onClose }: Props) {
   const addToNext = usePlayerStore((s) => s.addToNext)
+  const navigation = useNavigation<any>()
   const { colors } = useTheme()
   const [showPlaylistModal, setShowPlaylistModal] = useState(false)
   const [isFav, setIsFav] = useState(false)
@@ -117,6 +119,21 @@ export default function SongContextMenu({ song, visible, onClose }: Props) {
               <Ionicons name={isFav ? 'heart' : 'heart-outline'} size={20} color={isFav ? colors.danger : colors.text} />
               <Text style={[styles.menuText, { color: isFav ? colors.danger : colors.text }]}>{isFav ? '取消收藏' : '收藏'}</Text>
             </TouchableOpacity>
+
+            {song?.singers ? (
+              <TouchableOpacity style={styles.menuItem} activeOpacity={0.6}
+                onPress={() => { const n = song.singers; onClose(); navigation.navigate('DiscoverDetail', { type: 'artist', name: n }) }}>
+                <Ionicons name="person-outline" size={20} color={colors.text} />
+                <Text style={[styles.menuText, { color: colors.text }]}>查看歌手</Text>
+              </TouchableOpacity>
+            ) : null}
+            {song?.album ? (
+              <TouchableOpacity style={styles.menuItem} activeOpacity={0.6}
+                onPress={() => { const n = song.album; onClose(); navigation.navigate('DiscoverDetail', { type: 'album', name: n }) }}>
+                <Ionicons name="disc-outline" size={20} color={colors.text} />
+                <Text style={[styles.menuText, { color: colors.text }]}>查看专辑</Text>
+              </TouchableOpacity>
+            ) : null}
 
             <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
             <TouchableOpacity style={styles.cancelBtn} onPress={onClose} activeOpacity={0.6}>

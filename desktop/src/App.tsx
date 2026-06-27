@@ -28,6 +28,7 @@ import RingtoneMakerScreen from './screens/RingtoneMakerScreen'
 import SourceManagerScreen from './screens/SourceManagerScreen'
 import LoginHistoryScreen from './screens/LoginHistoryScreen'
 import DesktopLyricsWindow from './screens/DesktopLyricsWindow'
+import DiscoverScreen from './screens/DiscoverScreen'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const token = getCachedAccessToken()
@@ -87,6 +88,7 @@ export default function App() {
         <Route path="/guess-game" element={<GuessGameScreen />} />
         <Route path="/ringtone" element={<RingtoneMakerScreen />} />
         <Route path="/sources" element={<SourceManagerScreen />} />
+        <Route path="/discover" element={<DiscoverScreen />} />
         <Route path="/login-history" element={<LoginHistoryScreen />} />
       </Route>
 

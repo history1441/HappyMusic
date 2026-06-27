@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { usePlayerStore } from '../../stores/playerStore'
 import { useIsMobile } from '../../hooks/useBreakpoint'
 import Lyrics from './Lyrics'
@@ -14,6 +15,7 @@ import {
 import { SPEED_PRESETS, formatSpeed } from '@common/utils/playerControls'
 
 export default function FullPlayer() {
+  const navigate = useNavigate()
   const {
     currentSong, isPlaying, showFullPlayer,
     togglePlay, next, prev,
@@ -336,7 +338,18 @@ export default function FullPlayer() {
         {/* Song info */}
         <div style={{ textAlign: 'center', marginBottom: isMobile ? 16 : 24, marginTop: 12 }}>
           <h2 style={{ fontSize: isMobile ? 17 : 20, fontWeight: 700, color: '#fff', marginBottom: 4 }}>{currentSong.song_name}</h2>
-          <p style={{ fontSize: isMobile ? 12 : 14, color: 'rgba(255,255,255,0.6)' }}>{currentSong.singers} {currentSong.album ? `· ${currentSong.album}` : ''}</p>
+          <p style={{ fontSize: isMobile ? 12 : 14, color: 'rgba(255,255,255,0.6)' }}>
+            {currentSong.singers ? (
+              <span style={{ cursor: 'pointer' }} onClick={() => { setShowFullPlayer(false); navigate(`/discover?type=artist&name=${encodeURIComponent(currentSong.singers)}`) }}>
+                {currentSong.singers}
+              </span>
+            ) : null}
+            {currentSong.album ? (
+              <span style={{ cursor: 'pointer' }} onClick={() => { setShowFullPlayer(false); navigate(`/discover?type=album&name=${encodeURIComponent(currentSong.album)}`) }}>
+                {' '}· {currentSong.album}
+              </span>
+            ) : null}
+          </p>
         </div>
 
         {/* Controls */}

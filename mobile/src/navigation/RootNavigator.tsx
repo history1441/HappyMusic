@@ -32,6 +32,7 @@ import LocalFileImportScreen from '../screens/LocalFileImportScreen'
 import ScanQRScreen from '../screens/ScanQRScreen'
 import FavoritesScreen from '../screens/FavoritesScreen'
 import SourceManagerScreen from '../screens/SourceManagerScreen'
+import DiscoverDetailScreen from '../screens/DiscoverDetailScreen'
 
 const RootStack = createNativeStackNavigator()
 const Tab = createBottomTabNavigator()
@@ -207,6 +208,7 @@ export default function RootNavigator() {
           <>
             <RootStack.Screen name="Main" component={MainTabs} />
             <RootStack.Screen name="FullPlayer" component={PlayerScreen} options={{ presentation: 'modal', headerShown: false }} />
+            <RootStack.Screen name="DiscoverDetail" component={DiscoverDetailScreen} options={{ headerShown: false }} />
           </>
         )}
       </RootStack.Navigator>

@@ -20,6 +20,7 @@ const RingtoneMaker = lazy(() => import('./pages/RingtoneMaker'))
 const MoodRadio = lazy(() => import('./pages/MoodRadio'))
 const GuessGame = lazy(() => import('./pages/GuessGame'))
 const AIRecommend = lazy(() => import('./pages/AIRecommend'))
+const Discover = lazy(() => import('./pages/Discover'))
 const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'))
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'))
 const UserList = lazy(() => import('./pages/admin/UserList'))
@@ -132,6 +133,7 @@ export default function App() {
             <Route path="mood" element={<MoodRadio />} />
             <Route path="guess" element={<GuessGame />} />
             <Route path="recommend" element={<AIRecommend />} />
+            <Route path="discover" element={<Discover />} />
             <Route path="login-history" element={<LoginHistory />} />
             <Route path="settings/sources" element={<UserSourceManager />} />
             <Route path="download" element={<DownloadPage />} />

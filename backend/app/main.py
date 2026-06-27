@@ -9,6 +9,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from app.config import get_settings
 from app.database import engine, Base
 from app.routers import auth, search, playlist, share, stats, guess_game, sync, cache, ai, lyrics, qrcode_login
+from app.routers import discover
 from app.routers import admin_auth, admin_users, admin_analytics, admin_system, admin_config
 from app.routers import admin_cache, admin_logs, admin_sources, admin_builds, admin_monitor
 from app.routers.admin_builds import public_router
@@ -166,6 +167,7 @@ app.include_router(cache.router)
 app.include_router(ai.router)
 app.include_router(lyrics.router)
 app.include_router(qrcode_login.router)
+app.include_router(discover.router)
 app.include_router(public_router)
 
 # Admin routes
