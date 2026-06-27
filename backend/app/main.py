@@ -10,12 +10,14 @@ from app.config import get_settings
 from app.database import engine, Base
 from app.routers import auth, search, playlist, share, stats, guess_game, sync, cache, ai, lyrics, qrcode_login
 from app.routers import discover
+from app.routers import user_data
 from app.routers import admin_auth, admin_users, admin_analytics, admin_system, admin_config
 from app.routers import admin_cache, admin_logs, admin_sources, admin_builds, admin_monitor
 from app.routers.admin_builds import public_router
 from app.routers import admin_announcements, admin_database, admin_audit_log
 from app.middleware.api_metrics import ApiMetricsMiddleware
 from app.middleware.audit import AuditMiddleware
+from app.middleware.rate_limit import RateLimitMiddleware
 
 # Import models so Base.metadata.create_all picks them up
 from app.models import play_log, announcement, api_metric, admin_audit, user_audit, build_record, game_score
@@ -154,6 +156,7 @@ app.add_middleware(
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 app.add_middleware(ApiMetricsMiddleware)
 app.add_middleware(AuditMiddleware)
+app.add_middleware(RateLimitMiddleware)
 
 # User-facing routes
 app.include_router(auth.router)
@@ -168,6 +171,7 @@ app.include_router(ai.router)
 app.include_router(lyrics.router)
 app.include_router(qrcode_login.router)
 app.include_router(discover.router)
+app.include_router(user_data.router)
 app.include_router(public_router)
 
 # Admin routes

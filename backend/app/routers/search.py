@@ -429,6 +429,22 @@ async def refresh_url(req: RefreshUrlRequest, user_id: int = Depends(get_current
     }
 
 
+@router.post("/refresh-url/batch")
+async def refresh_url_batch(
+    items: list[RefreshUrlRequest],
+    user_id: int = Depends(get_current_user),
+):
+    """批量取流:仅返回已缓存的下载链接(瞬时),未命中项由客户端走单个 /refresh-url。
+    用于歌单/队列预取,减少 N 次 HTTP 往返。上限 50 项。
+    """
+    results: dict[str, dict] = {}
+    for item in items[:50]:
+        cached = get_cached_url(item.source, item.song_identifier)
+        if cached:
+            results[f"{item.source}:{item.song_identifier}"] = {"download_url": cached, "from_cache": True}
+    return {"results": results, "hit_count": len(results), "total": len(items)}
+
+
 @router.get("/proxy")
 async def proxy_download(url: str, user_id: int = Depends(get_current_user)):
     import httpx
