@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router'
 import { useState, useEffect } from 'react'
 import { useDesktopSync } from '../hooks/useDesktopSync'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
+import { useDesktopLyricsEmitter } from '../hooks/useDesktopLyricsEmitter'
 import { useWindowStore } from '../stores/windowStore'
 import {
   Home, Search, Disc3, Library, Settings,
@@ -45,6 +46,8 @@ export default function AppLayout() {
   useDesktopSync()
   // 应用内键盘快捷键(Space 播放/暂停,Ctrl+→/← 上下首)
   useKeyboardShortcuts()
+  // 向桌面歌词悬浮窗广播当前歌词
+  useDesktopLyricsEmitter()
   const miniMode = useWindowStore(s => s.miniMode)
 
   const location = useLocation()

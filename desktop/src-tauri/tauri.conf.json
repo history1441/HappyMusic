@@ -19,6 +19,20 @@
         "minHeight": 700,
         "center": true,
         "decorations": true
+      },
+      {
+        "label": "desktop-lyrics",
+        "title": "桌面歌词",
+        "url": "/desktop-lyrics",
+        "width": 720,
+        "height": 96,
+        "visible": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "center": true
       }
     ],
     "security": {

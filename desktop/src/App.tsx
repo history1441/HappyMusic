@@ -27,6 +27,7 @@ import GuessGameScreen from './screens/GuessGameScreen'
 import RingtoneMakerScreen from './screens/RingtoneMakerScreen'
 import SourceManagerScreen from './screens/SourceManagerScreen'
 import LoginHistoryScreen from './screens/LoginHistoryScreen'
+import DesktopLyricsWindow from './screens/DesktopLyricsWindow'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const token = getCachedAccessToken()
@@ -55,6 +56,9 @@ function DisclaimerGuard({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <Routes>
+      {/* 桌面歌词悬浮窗(独立 Tauri 窗口,无侧栏/无鉴权) */}
+      <Route path="/desktop-lyrics" element={<DesktopLyricsWindow />} />
+
       {/* Auth routes (no sidebar) */}
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<LoginScreen />} />

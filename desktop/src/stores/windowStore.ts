@@ -25,14 +25,28 @@ async function getWindow(): Promise<any | null> {
 interface WindowState {
   miniMode: boolean
   alwaysOnTop: boolean
+  lyricsOverlayOn: boolean
   toggleAlwaysOnTop: () => Promise<void>
   enterMini: () => Promise<void>
   exitMini: () => Promise<void>
+  toggleLyricsOverlay: () => Promise<void>
+}
+
+async function getLyricsWindow(): Promise<any | null> {
+  try {
+    if (!(window as any).__TAURI_INTERNALS__) return null
+    const { getAllWebviewWindows } = await import('@tauri-apps/api/webviewWindow')
+    const wins = await getAllWebviewWindows()
+    return wins.find((w: any) => w.label === 'desktop-lyrics') || null
+  } catch {
+    return null
+  }
 }
 
 export const useWindowStore = create<WindowState>((set, get) => ({
   miniMode: false,
   alwaysOnTop: false,
+  lyricsOverlayOn: false,
 
   toggleAlwaysOnTop: async () => {
     const next = !get().alwaysOnTop
@@ -40,6 +54,17 @@ export const useWindowStore = create<WindowState>((set, get) => ({
     const handle = await getWindow()
     if (handle) {
       try { await handle.win.setAlwaysOnTop(next) } catch {}
+    }
+  },
+
+  toggleLyricsOverlay: async () => {
+    const next = !get().lyricsOverlayOn
+    set({ lyricsOverlayOn: next })
+    const lw = await getLyricsWindow()
+    if (lw) {
+      try {
+        if (next) { await lw.show(); await lw.setFocus() } else { await lw.hide() }
+      } catch {}
     }
   },
 

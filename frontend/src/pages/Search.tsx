@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useIsMobile } from '../hooks/useBreakpoint'
 import { useElapsedTimer } from '../hooks/useElapsedTimer'
 import api from '../services/api'
@@ -55,6 +56,7 @@ export default function Search() {
   const elapsedSeconds = useElapsedTimer(loading)
   const observerRef = useRef<IntersectionObserver | null>(null)
   const { play } = usePlayerStore()
+  const navigate = useNavigate()
   const { addTask, tasks } = useDownloadStore()
 
   useEffect(() => {
@@ -313,12 +315,44 @@ export default function Search() {
   const showSuggestions = showDropdown && keyword.trim() && suggestions.length > 0
 
   const [showQuality, setShowQuality] = useState(false)
+  const [hotSongs, setHotSongs] = useState<any[]>([])
+  const [dailyRec, setDailyRec] = useState<any[]>([])
   const qualityLabel = useQualityStore.getState().quality === 'standard' ? '标准' : useQualityStore.getState().quality === 'lossless' ? '无损' : '高品质'
   const qualityOpts: { id: 'standard' | 'high' | 'lossless'; label: string }[] = [
     { id: 'standard', label: '标准(省流)' },
     { id: 'high', label: '高品质(推荐)' },
     { id: 'lossless', label: '无损(FLAC)' },
   ]
+
+  // 发现区:点击播放(转换通用对象为 Song)
+  const playDiscovery = (item: any) => {
+    play({
+      song_name: item.song_name, singers: item.singers, album: item.album || '',
+      ext: item.ext || 'mp3', file_size: '', duration: '', duration_s: item.duration_s || 0,
+      source: item.source || '', song_identifier: item.song_identifier || '',
+      download_url: item.download_url || '', cover_url: item.cover_url || '', lyric: '',
+      with_valid_download_url: !!item.download_url,
+    } as Song)
+  }
+
+  const quickEntries = [
+    { to: '/hot', emoji: '🔥', label: '热门排行' },
+    { to: '/mood', emoji: '📻', label: '心情电台' },
+    { to: '/guess', emoji: '🎮', label: '猜歌游戏' },
+    { to: '/recommend', emoji: '✨', label: 'AI推荐' },
+    { to: '/recent', emoji: '🕒', label: '最近播放' },
+    { to: '/playlists', emoji: '🎵', label: '我的歌单' },
+  ]
+
+  // 发现区数据:热门 + 每日推荐(空状态展示)
+  useEffect(() => {
+    api.get('/global-hot', { params: { period: 'day', limit: 8 } }).then(({ data }) => {
+      setHotSongs(Array.isArray(data) ? data : [])
+    }).catch(() => {})
+    api.get('/ai/recommend', { params: { count: 6 } }).then(({ data }) => {
+      setDailyRec(data.recommendations || data.songs || [])
+    }).catch(() => {})
+  }, [])
 
   return (
     <div style={{ padding: isMobile ? '16px' : '24px 32px', paddingBottom: isMobile ? 132 : 120 }}>
@@ -485,6 +519,75 @@ export default function Search() {
           {loading ? (isMobile ? '...' : '搜索中...') : '搜索'}
         </button>
       </form>
+
+      {/* 发现区:无搜索关键词时展示(快捷入口 + 每日推荐 + 热门) */}
+      {!keyword.trim() && !loading && (
+        <div>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(6, 1fr)', gap: 12, marginBottom: 28 }}>
+            {quickEntries.map((e) => (
+              <button key={e.to} onClick={() => navigate(e.to)} style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                padding: '16px 8px', background: 'var(--card)', border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)', cursor: 'pointer', transition: 'all 0.15s',
+              }}
+                onMouseEnter={(ev) => (ev.currentTarget.style.borderColor = 'var(--accent)')}
+                onMouseLeave={(ev) => (ev.currentTarget.style.borderColor = 'var(--border)')}>
+                <span style={{ fontSize: 22 }}>{e.emoji}</span>
+                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{e.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {dailyRec.length > 0 && (
+            <section style={{ marginBottom: 28 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <h3 style={{ fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>✨ 每日推荐</h3>
+                <button onClick={() => navigate('/recommend')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', fontSize: 12 }}>更多 &gt;</button>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 8 }}>
+                {dailyRec.slice(0, 6).map((s, i) => (
+                  <button key={i} onClick={() => playDiscovery(s)} style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px',
+                    background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+                    cursor: 'pointer', textAlign: 'left',
+                  }}>
+                    {s.cover_url ? <img src={s.cover_url} alt="" style={{ width: 40, height: 40, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ width: 40, height: 40, borderRadius: 6, background: 'var(--bg-tertiary)', flexShrink: 0 }} />}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.song_name}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-tertiary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.singers}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {hotSongs.length > 0 && (
+            <section>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <h3 style={{ fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>🔥 热门歌曲</h3>
+                <button onClick={() => navigate('/hot')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', fontSize: 12 }}>查看全部 &gt;</button>
+              </div>
+              <div style={{ background: 'var(--card)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                {hotSongs.slice(0, 8).map((item, i) => (
+                  <div key={i} onClick={() => playDiscovery(item)} style={{
+                    display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', cursor: 'pointer',
+                    borderBottom: i < Math.min(hotSongs.length, 8) - 1 ? '1px solid var(--border)' : 'none',
+                  }}
+                    onMouseEnter={(ev) => (ev.currentTarget.style.background = 'var(--bg-secondary)')}
+                    onMouseLeave={(ev) => (ev.currentTarget.style.background = 'transparent')}>
+                    <span style={{ width: 24, textAlign: 'center', fontSize: 15, fontWeight: 700, color: i < 3 ? 'var(--accent)' : 'var(--text-tertiary)' }}>{i + 1}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.song_name}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{item.singers}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+      )}
 
       {/* Source filter chips */}
       {availableSources.length > 1 && (

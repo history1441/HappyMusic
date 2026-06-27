@@ -1,0 +1,12 @@
+{
+  "identifier": "desktop-lyrics",
+  "description": "Capability for the desktop lyrics overlay window (listen to lyric events, hide itself)",
+  "windows": ["desktop-lyrics"],
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    "core:window:allow-hide",
+    "core:window:allow-show",
+    "core:window:allow-set-focus"
+  ]
+}

@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router'
 import { useState, useRef, useEffect } from 'react'
-import { Play, Pause, SkipForward, SkipBack, Repeat, Shuffle, Repeat1, Disc3, Volume2, Volume1, VolumeX, Timer, Gauge, Pin, Minimize2 } from 'lucide-react'
+import { Play, Pause, SkipForward, SkipBack, Repeat, Shuffle, Repeat1, Disc3, Volume2, Volume1, VolumeX, Timer, Gauge, Pin, Minimize2, Captions } from 'lucide-react'
 import { usePlayerStore } from '../stores/playerStore'
 import { useWindowStore } from '../stores/windowStore'
 import { formatDuration } from '@common/utils/format'
@@ -14,7 +14,7 @@ export default function MiniPlayer() {
   const navigate = useNavigate()
   const { currentSong, isPlaying, position, duration, playMode, isBuffering, volume, rate, abLoop, timerEndTime,
     togglePlay, next, prev, setPlayMode, seekTo, setVolume, setRate, toggleAbPoint, clearAb, setTimer } = usePlayerStore()
-  const { alwaysOnTop, toggleAlwaysOnTop, enterMini } = useWindowStore()
+  const { alwaysOnTop, toggleAlwaysOnTop, enterMini, lyricsOverlayOn, toggleLyricsOverlay } = useWindowStore()
   const [showVolume, setShowVolume] = useState(false)
   const [showSpeed, setShowSpeed] = useState(false)
   const [showTimer, setShowTimer] = useState(false)
@@ -227,6 +227,13 @@ export default function MiniPlayer() {
             className="p-1.5 rounded-full text-text-tertiary hover:text-text transition-colors"
           >
             <Minimize2 size={16} />
+          </button>
+          <button
+            onClick={toggleLyricsOverlay}
+            title={lyricsOverlayOn ? '关闭桌面歌词' : '桌面歌词(悬浮窗)'}
+            className={cn('p-1.5 rounded-full transition-colors', lyricsOverlayOn ? 'text-primary' : 'text-text-tertiary hover:text-text')}
+          >
+            <Captions size={16} />
           </button>
         </div>
 
