@@ -4,6 +4,7 @@ import { useAuthStore } from './stores/authStore'
 import { useThemeStore } from './stores/themeStore'
 import { useAdminAuthStore } from './stores/adminAuthStore'
 import { useQualityStore } from '@common/stores/qualityStore'
+import { useThemeStore as useCommonThemeStore, deriveAccentVariants } from '@common/stores/themeStore'
 import Layout from './components/Layout'
 import AdminLayout from './components/admin/AdminLayout'
 
@@ -83,12 +84,24 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
 export default function App() {
   const { init: initAuth } = useAuthStore()
   const { init: initTheme } = useThemeStore()
+  const accentColor = useCommonThemeStore(s => s.accentColor)
+  const initCommonTheme = useCommonThemeStore(s => s.init)
 
   useEffect(() => {
     initTheme()
     initAuth()
     useQualityStore.getState().init()
+    initCommonTheme()
   }, [])
+
+  // 应用自定义强调色到 CSS 变量
+  useEffect(() => {
+    const root = document.documentElement
+    const { hover, light } = deriveAccentVariants(accentColor)
+    root.style.setProperty('--accent', accentColor)
+    root.style.setProperty('--accent-hover', hover)
+    root.style.setProperty('--accent-light', light)
+  }, [accentColor])
 
   return (
     <BrowserRouter>

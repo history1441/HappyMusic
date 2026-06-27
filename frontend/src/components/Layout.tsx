@@ -6,6 +6,7 @@ import useKeyboardShortcuts from '../hooks/useKeyboardShortcuts'
 import { useSync } from '../hooks/useSync'
 import MiniPlayer from './player/MiniPlayer'
 import FullPlayer from './player/FullPlayer'
+import AccentPicker from './AccentPicker'
 import { useComfortStore } from '../stores/comfortStore'
 import {
   Search, ListMusic, Moon, Sun, LogOut, Music, Clock,
@@ -558,6 +559,7 @@ export default function Layout() {
               <div style={{ fontSize: 11, color: 'var(--text-tertiary)', lineHeight: 1.5, padding: '0 4px' }}>
                 开启后，每播放若干首歌曲后会触发一次 AI 生成的安慰语音，使用浏览器语音合成播报。
               </div>
+              <AccentPicker />
             </div>
           </div>
         </div>

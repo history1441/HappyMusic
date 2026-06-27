@@ -20,7 +20,7 @@ export { setPlatformAdapter, getAdapter } from './adapters'
 export type { PlatformAdapter, StorageAdapter, AudioAdapter, DatabaseAdapter, FileSystemAdapter } from './adapters'
 
 // Stores(三端共用)
-export { useThemeStore } from './stores/themeStore'
+export { useThemeStore, ACCENT_PRESETS, DEFAULT_ACCENT, deriveAccentVariants } from './stores/themeStore'
 export type { ThemeMode } from './stores/themeStore'
 export { useAuthStore } from './stores/authStore'
 export { useQualityStore } from './stores/qualityStore'

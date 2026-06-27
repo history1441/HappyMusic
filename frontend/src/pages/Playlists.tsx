@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useIsMobile } from '../hooks/useBreakpoint'
 import api from '../services/api'
 import { usePlayerStore } from '../stores/playerStore'
+import { useDownloadStore } from '../stores/downloadStore'
 import type { Playlist, Song } from '../types'
 import {
   Plus, Heart, ListMusic, Trash2, Share2,
@@ -22,6 +23,20 @@ export default function Playlists() {
   const [editName, setEditName] = useState('')
   const [editDesc, setEditDesc] = useState('')
   const { play } = usePlayerStore()
+  const addDownloadTask = useDownloadStore(s => s.addTask)
+
+  // 批量下载歌单全部歌曲
+  const handleDownloadAll = (pl: Playlist) => {
+    pl.songs.forEach((s) => {
+      addDownloadTask({
+        song_name: s.song_name, singers: s.singers, album: s.album,
+        ext: s.ext, file_size: '', duration: '', duration_s: s.duration,
+        source: s.source, song_identifier: s.song_identifier,
+        download_url: '', cover_url: s.cover_url, lyric: '',
+        with_valid_download_url: false,
+      } as Song)
+    })
+  }
 
   const fetchPlaylists = async () => {
     const { data } = await api.get('/playlists')
@@ -240,6 +255,15 @@ export default function Playlists() {
                       display: 'flex', alignItems: 'center', gap: 4,
                     }}>
                       <Play size={13} /> 播放全部
+                    </button>
+                  )}
+                  {activePlaylist.songs.length > 0 && (
+                    <button onClick={() => handleDownloadAll(activePlaylist)} title="下载全部" style={{
+                      padding: '8px 16px', background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+                      borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-secondary)', fontWeight: 600, fontSize: 13,
+                      display: 'flex', alignItems: 'center', gap: 4,
+                    }}>
+                      <Download size={13} /> 下载全部
                     </button>
                   )}
                   <button onClick={() => startEdit(activePlaylist)} title="编辑歌单" style={{
