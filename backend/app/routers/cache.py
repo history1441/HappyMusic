@@ -78,8 +78,11 @@ def get_cached_download_url(
 
 @router.get("/announcements")
 def get_announcements(db: Session = Depends(get_db)):
-    """Active announcements for regular users."""
-    items = db.query(Announcement).order_by(
+    """Active announcements for regular users (only published: publish_at 为空或已到发布时间)."""
+    now = datetime.now()
+    items = db.query(Announcement).filter(
+        (Announcement.publish_at.is_(None)) | (Announcement.publish_at <= now)
+    ).order_by(
         Announcement.is_pinned.desc(), Announcement.created_at.desc(),
     ).limit(10).all()
     return {"items": [{

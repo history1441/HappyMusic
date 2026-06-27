@@ -4,6 +4,7 @@ import { useThemeStore } from '../stores/themeStore'
 import { useIsMobile } from '../hooks/useBreakpoint'
 import useKeyboardShortcuts from '../hooks/useKeyboardShortcuts'
 import { useSync } from '../hooks/useSync'
+import { useAlarmChecker } from '../hooks/useAlarmChecker'
 import MiniPlayer from './player/MiniPlayer'
 import FullPlayer from './player/FullPlayer'
 import AccentPicker from './AccentPicker'
@@ -12,7 +13,7 @@ import {
   Search, ListMusic, Moon, Sun, LogOut, Music, Clock,
   BarChart3, Flame, Radio, Gamepad2, Sparkles, MoreHorizontal,
   FolderOpen, Scissors, ChevronDown, KeyRound, Eye, EyeOff, X, Shield,
-  User, Music2, Mic, Settings,
+  User, Music2, Mic, Settings, Bell,
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import api from '../services/api'
@@ -37,6 +38,7 @@ export default function Layout() {
   const userMenuRef = useRef<HTMLDivElement>(null)
   useKeyboardShortcuts()
   useSync()
+  useAlarmChecker()
 
   useEffect(() => { comfortInit() }, [])
 
@@ -81,10 +83,12 @@ export default function Layout() {
     { to: '/mood', icon: Radio, label: '电台' },
     { to: '/guess', icon: Gamepad2, label: '猜歌' },
     { to: '/recommend', icon: Sparkles, label: 'AI推荐' },
+    { to: '/alarm', icon: Bell, label: '闹钟' },
     { to: '/stats', icon: BarChart3, label: '统计' },
   ]
 
   const moreNav = [
+    { to: '/alarm', icon: Bell, label: '音乐闹钟' },
     { to: '/local', icon: FolderOpen, label: '本地音乐' },
     { to: '/ringtone', icon: Scissors, label: '铃声裁剪' },
     { to: '/login-history', icon: Shield, label: '登录记录' },

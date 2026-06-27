@@ -5,7 +5,7 @@ import { Plus, Pin, Trash2, X } from 'lucide-react'
 export default function AnnouncementList() {
   const [items, setItems] = useState<any[]>([])
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ title: '', content: '', type: 'info', is_pinned: false })
+  const [form, setForm] = useState({ title: '', content: '', type: 'info', is_pinned: false, publish_at: '' })
   const token = localStorage.getItem('admin_token')
   const h = { headers: { Authorization: `Bearer ${token}` } }
 
@@ -13,8 +13,10 @@ export default function AnnouncementList() {
   useEffect(() => { fetch() }, [])
 
   const handleCreate = async () => {
-    await api.post('/admin/announcements', form, h)
-    setForm({ title: '', content: '', type: 'info', is_pinned: false })
+    // publish_at 为空表示立即发布(传 null);否则转 ISO
+    const payload = { ...form, publish_at: form.publish_at ? new Date(form.publish_at).toISOString() : null }
+    await api.post('/admin/announcements', payload, h)
+    setForm({ title: '', content: '', type: 'info', is_pinned: false, publish_at: '' })
     setShowForm(false)
     fetch()
   }
@@ -77,6 +79,15 @@ export default function AnnouncementList() {
               <input type="checkbox" checked={form.is_pinned} onChange={(e) => setForm({ ...form, is_pinned: e.target.checked })} />
               置顶
             </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: 'var(--text-secondary)', marginLeft: 'auto' }}>
+              定时:
+              <input type="datetime-local" value={form.publish_at} onChange={(e) => setForm({ ...form, publish_at: e.target.value })} style={{
+                padding: '4px 8px', background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: 12,
+              }} />
+            </label>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
             <button onClick={handleCreate} style={{
               padding: '8px 16px', background: 'var(--accent)', border: 'none',
               borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: '#fff', fontSize: 13, fontWeight: 600, marginLeft: 'auto',
@@ -99,6 +110,15 @@ export default function AnnouncementList() {
                   background: `${typeColors[a.type] || '#3b82f6'}20`,
                   color: typeColors[a.type] || '#3b82f6',
                 }}>{a.type}</span>
+                {a.publish_at ? (
+                  <span style={{
+                    padding: '1px 8px', borderRadius: 10, fontSize: 10,
+                    background: a.is_published ? '#10b98120' : '#f59e0b20',
+                    color: a.is_published ? '#10b981' : '#f59e0b',
+                  }} title={a.publish_at ? `定时:${new Date(a.publish_at).toLocaleString('zh-CN')}` : ''}>
+                    {a.is_published ? '已发布' : `定时 ${new Date(a.publish_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`}
+                  </span>
+                ) : null}
                 {a.is_pinned && <Pin size={12} style={{ color: '#f59e0b' }} />}
               </div>
               <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{a.content.substring(0, 100)}</div>

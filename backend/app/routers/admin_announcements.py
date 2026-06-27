@@ -4,6 +4,7 @@ from app.database import get_db
 from app.models.announcement import Announcement
 from app.schemas.admin import AnnouncementCreate, AnnouncementUpdate
 from app.utils.auth import get_admin_user
+from datetime import datetime
 
 router = APIRouter(prefix="/api/admin", tags=["公告管理"])
 
@@ -15,6 +16,7 @@ def list_announcements(
     admin_id: int = Depends(get_admin_user),
     db: Session = Depends(get_db),
 ):
+    now = datetime.now()
     total = db.query(Announcement).count()
     items = db.query(Announcement).order_by(
         Announcement.is_pinned.desc(), Announcement.created_at.desc(),
@@ -25,6 +27,8 @@ def list_announcements(
             "id": a.id, "title": a.title, "content": a.content,
             "type": a.type, "is_pinned": a.is_pinned,
             "created_by": a.created_by,
+            "publish_at": a.publish_at.isoformat() if a.publish_at else None,
+            "is_published": (a.publish_at is None) or (a.publish_at <= now),
             "created_at": a.created_at.isoformat() if a.created_at else None,
         } for a in items],
     }
@@ -37,6 +41,7 @@ def create_announcement(
     a = Announcement(
         title=req.title, content=req.content,
         type=req.type, is_pinned=req.is_pinned, created_by=admin_id,
+        publish_at=req.publish_at,
     )
     db.add(a)
     db.commit()
@@ -60,6 +65,8 @@ def update_announcement(
         a.type = req.type
     if req.is_pinned is not None:
         a.is_pinned = req.is_pinned
+    if req.publish_at is not None:
+        a.publish_at = req.publish_at
     db.commit()
     return {"ok": True}
 

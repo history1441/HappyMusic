@@ -48,6 +48,7 @@ class AnnouncementCreate(BaseModel):
     content: str = ""
     type: str = "info"
     is_pinned: bool = False
+    publish_at: Optional[datetime] = None
 
 
 class AnnouncementUpdate(BaseModel):
@@ -55,6 +56,7 @@ class AnnouncementUpdate(BaseModel):
     content: Optional[str] = None
     type: Optional[str] = None
     is_pinned: Optional[bool] = None
+    publish_at: Optional[datetime] = None
 
 
 class ConfigUpdate(BaseModel):
