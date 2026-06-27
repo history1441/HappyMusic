@@ -19,6 +19,8 @@ export default function Playlists() {
   const [shareCode, setShareCode] = useState('')
   const [importCode, setImportCode] = useState('')
   const [showImport, setShowImport] = useState(false)
+  const [showImportText, setShowImportText] = useState(false)
+  const [importText, setImportText] = useState({ name: '', source: 'netease', content: '' })
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editName, setEditName] = useState('')
   const [editDesc, setEditDesc] = useState('')
@@ -108,6 +110,26 @@ export default function Playlists() {
     e.target.value = ''
   }
 
+  // 从网易云等平台导出的歌单文本导入
+  const handleImportText = async () => {
+    if (!importText.content.trim() || !importText.name.trim()) {
+      alert('请填写歌单名称和歌曲文本')
+      return
+    }
+    try {
+      await api.post('/playlists/import-text', {
+        name: importText.name.trim(),
+        text: importText.content,
+        source: importText.source,
+      })
+      setShowImportText(false)
+      setImportText({ name: '', source: 'netease', content: '' })
+      fetchPlaylists()
+    } catch {
+      alert('导入失败,请重试')
+    }
+  }
+
   const startEdit = (pl: Playlist) => {
     setEditingId(pl.id)
     setEditName(pl.name)
@@ -175,6 +197,13 @@ export default function Playlists() {
             color: 'var(--text-primary)', cursor: 'pointer', fontSize: 13,
           }}>
             导入文件
+          </button>
+          <button onClick={() => setShowImportText(true)} title="从网易云/QQ等平台导出的歌单文本导入" style={{
+            padding: isMobile ? '6px 12px' : '8px 16px', background: 'var(--bg-secondary)',
+            border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+            color: 'var(--text-primary)', cursor: 'pointer', fontSize: 13,
+          }}>
+            导入歌单文本
           </button>
           <input ref={fileInputRef} type="file" accept="application/json,.json" onChange={handleImportJsonFile} style={{ display: 'none' }} />
           <button onClick={() => setShowCreate(true)} style={{
@@ -426,6 +455,35 @@ export default function Playlists() {
                 padding: '8px 16px', background: 'var(--accent)', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: '#fff', fontWeight: 600,
               }}>导入</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 导入歌单文本(网易云等平台导出) */}
+      {showImportText && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+          <div style={{ width: '100%', maxWidth: 520, maxHeight: '90vh', padding: 24, background: 'var(--card)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-lg)', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ fontSize: 16, fontWeight: 600 }}>导入歌单文本</h3>
+              <button onClick={() => setShowImportText(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)' }}><X size={18} /></button>
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 16, lineHeight: 1.5 }}>
+              粘贴从网易云音乐等平台导出的歌单(每行一首,格式「歌曲名 - 歌手」)。播放时自动按歌名匹配音源取流。
+            </p>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <input value={importText.name} onChange={(e) => setImportText({ ...importText, name: e.target.value })} placeholder="歌单名称" style={{ flex: 1, padding: '10px 14px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: 14, outline: 'none' }} />
+              <select value={importText.source} onChange={(e) => setImportText({ ...importText, source: e.target.value })} style={{ padding: '10px 14px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: 14, outline: 'none' }}>
+                <option value="netease">网易云</option>
+                <option value="qqmusic">QQ音乐</option>
+                <option value="kugou">酷狗</option>
+                <option value="kuwo">酷我</option>
+                <option value="migu">咪咕</option>
+              </select>
+            </div>
+            <textarea value={importText.content} onChange={(e) => setImportText({ ...importText, content: e.target.value })} placeholder={'每行一首,例如:\n晴天 - 周杰伦\n稻香 - 周杰伦\n起风了 - 买辣椒也用券'} rows={10} style={{ flex: 1, minHeight: 200, padding: '12px 14px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: 13, outline: 'none', resize: 'vertical', fontFamily: 'monospace', lineHeight: 1.6 }} />
+            <button onClick={handleImportText} style={{ marginTop: 16, padding: '12px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>
+              导入歌单
+            </button>
           </div>
         </div>
       )}

@@ -1,8 +1,9 @@
 import { useNavigate } from 'react-router'
 import { useState, useRef, useEffect } from 'react'
-import { Play, Pause, SkipForward, SkipBack, Repeat, Shuffle, Repeat1, Disc3, Volume2, Volume1, VolumeX, Timer, Gauge, Pin, Minimize2, Captions } from 'lucide-react'
+import { Play, Pause, SkipForward, SkipBack, Repeat, Shuffle, Repeat1, Disc3, Volume2, Volume1, VolumeX, Timer, Gauge, Pin, Minimize2, Captions, Sliders } from 'lucide-react'
 import { usePlayerStore } from '../stores/playerStore'
 import { useWindowStore } from '../stores/windowStore'
+import Equalizer from './Equalizer'
 import { formatDuration } from '@common/utils/format'
 import {
   SPEED_PRESETS, formatSpeed,
@@ -18,6 +19,7 @@ export default function MiniPlayer() {
   const [showVolume, setShowVolume] = useState(false)
   const [showSpeed, setShowSpeed] = useState(false)
   const [showTimer, setShowTimer] = useState(false)
+  const [showEq, setShowEq] = useState(false)
   const [, setNow] = useState(0)
   const volumeRef = useRef<HTMLDivElement>(null)
 
@@ -210,6 +212,15 @@ export default function MiniPlayer() {
           >
             <Repeat size={16} />
           </button>
+
+          {/* 均衡器 */}
+          <button
+            onClick={() => setShowEq(true)}
+            className="p-1.5 rounded-full text-text-tertiary hover:text-text transition-colors"
+            title="均衡器"
+          >
+            <Sliders size={16} />
+          </button>
         </div>
 
         {/* 窗口控制:置顶 + 迷你模式 */}
@@ -279,6 +290,7 @@ export default function MiniPlayer() {
           </div>
         </div>
       </div>
+      <Equalizer show={showEq} onClose={() => setShowEq(false)} />
     </div>
   )
 }
