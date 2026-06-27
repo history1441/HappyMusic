@@ -2,11 +2,14 @@
   "name": "HappyMusic",
   "short_name": "HappyMusic",
   "description": "多源音乐搜索播放器",
+  "id": "/",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f0f0f",
-  "theme_color": "#ff6b6b",
+  "theme_color": "#EC4141",
   "orientation": "any",
+  "lang": "zh-CN",
+  "categories": ["music", "entertainment"],
   "icons": [
     {
       "src": "/icon-192.svg",

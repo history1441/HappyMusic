@@ -28,6 +28,14 @@ self.addEventListener('fetch', (event) => {
   // Only handle same-origin requests
   if (url.origin !== location.origin) return
 
+  // 导航请求(app shell):网络优先,离线时回退到缓存的 index.html,保证 PWA 离线可打开
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request).catch(() => caches.match('/index.html').then((r) => r || caches.match('/')))
+    )
+    return
+  }
+
   // API requests: network first, fallback to cache
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
