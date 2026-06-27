@@ -1,4 +1,4 @@
-import { useThemeStore as useCommonThemeStore } from '@happymusic/common'
+import { useThemeStore as useCommonThemeStore } from '@common/stores/themeStore'
 
 /**
  * desktop 主题 Store 兼容层
