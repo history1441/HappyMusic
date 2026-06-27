@@ -189,9 +189,9 @@ def _parse_playlist_text(text: str, source: str) -> list[dict]:
         singers = ""
         if len(parts) == 2:
             a, b = parts[0].strip(), parts[1].strip()
-            # 启发式:若 b 含「/」「、」「,&」多为歌手列表 → a 是歌名(网易云:歌名 - 歌手)
-            # 默认按网易云格式:歌名在前
-            song_name, singers = a, b
+            # 默认按网易云格式:歌名在前;清理歌手尾部的专辑/多余信息(如「歌手 / 专辑」「歌手 album」)
+            song_name = a
+            singers = re.split(r'\s+[/／]\s+|\s+album[:：]?', b, maxsplit=1)[0].strip()
         else:
             song_name = line
         if not song_name:

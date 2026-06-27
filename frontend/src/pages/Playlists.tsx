@@ -76,6 +76,7 @@ export default function Playlists() {
   }
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const textFileRef = useRef<HTMLInputElement>(null)
 
   // 导出歌单为 JSON 文件(本地下载,可跨账号/跨端迁移)
   const handleExportJson = async (id: number, name: string) => {
@@ -128,6 +129,16 @@ export default function Playlists() {
     } catch {
       alert('导入失败,请重试')
     }
+  }
+
+  // 上传 txt/csv 文件填入文本框
+  const handleTextFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const content = await file.text()
+    const autoName = importText.name || file.name.replace(/\.(txt|csv|csv)$/i, '')
+    setImportText({ ...importText, content, name: autoName })
+    e.target.value = ''
   }
 
   const startEdit = (pl: Playlist) => {
@@ -465,7 +476,13 @@ export default function Playlists() {
           <div style={{ width: '100%', maxWidth: 520, maxHeight: '90vh', padding: 24, background: 'var(--card)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-lg)', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h3 style={{ fontSize: 16, fontWeight: 600 }}>导入歌单文本</h3>
-              <button onClick={() => setShowImportText(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)' }}><X size={18} /></button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button onClick={() => textFileRef.current?.click()} style={{ padding: '4px 12px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: 12 }}>
+                  上传 txt/csv
+                </button>
+                <input ref={textFileRef} type="file" accept=".txt,.csv,text/plain,text/csv" onChange={handleTextFile} style={{ display: 'none' }} />
+                <button onClick={() => setShowImportText(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)' }}><X size={18} /></button>
+              </div>
             </div>
             <p style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 16, lineHeight: 1.5 }}>
               粘贴从网易云音乐等平台导出的歌单(每行一首,格式「歌曲名 - 歌手」)。播放时自动按歌名匹配音源取流。
