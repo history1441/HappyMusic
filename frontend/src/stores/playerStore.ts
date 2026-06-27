@@ -27,6 +27,8 @@ interface PlayerState {
   addToQueue: (song: Song) => void
   removeFromQueue: (index: number) => void
   clearQueue: () => void
+  moveInQueue: (from: number, to: number) => void
+  playQueueIndex: (index: number) => void
   setTimer: (minutes: number | null) => void
   checkTimer: () => boolean
   setRate: (rate: number) => void
@@ -116,6 +118,28 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }),
 
   clearQueue: () => set({ queue: [], queueIndex: -1 }),
+
+  moveInQueue: (from, to) => {
+    if (from === to) return
+    set((s) => {
+      const q = [...s.queue]
+      if (to < 0 || to >= q.length) return s
+      const [item] = q.splice(from, 1)
+      q.splice(to, 0, item)
+      // 修正当前索引跟随移动的歌曲
+      let idx = s.queueIndex
+      if (from === s.queueIndex) idx = to
+      else if (from < s.queueIndex && to >= s.queueIndex) idx -= 1
+      else if (from > s.queueIndex && to <= s.queueIndex) idx += 1
+      return { queue: q, queueIndex: idx }
+    })
+  },
+
+  playQueueIndex: (index) => {
+    if (index < 0 || index >= get().queue.length) return
+    const song = get().queue[index]
+    set({ currentSong: song, queueIndex: index, isPlaying: true })
+  },
 
   setTimer: (minutes) => {
     if (minutes === null) {

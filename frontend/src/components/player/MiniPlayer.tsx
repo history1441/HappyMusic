@@ -5,12 +5,13 @@ import { useIsMobile } from '../../hooks/useBreakpoint'
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX,
   Repeat, Shuffle, Repeat1, Maximize2, Music2, Sliders,
-  Heart, ListPlus,
+  Heart, ListPlus, ListMusic,
 } from 'lucide-react'
 import type { Song } from '../../types'
 import Equalizer from './Equalizer'
 import { reportPlay } from '../../hooks/usePlayStats'
 import AddToPlaylist from '../AddToPlaylist'
+import QueuePanel from './QueuePanel'
 import { shouldLoopBack } from '@common/utils/playerControls'
 
 const FADE_DURATION = 800
@@ -57,12 +58,13 @@ export default function MiniPlayer() {
   const [fading, setFading] = useState(false)
   const [showEq, setShowEq] = useState(false)
   const [showPlaylist, setShowPlaylist] = useState(false)
+  const [showQueue, setShowQueue] = useState(false)
   const [isFav, setIsFav] = useState(false)
   const isMobile = useIsMobile()
   const playStartRef = useRef<number>(0)
   const reportedRef = useRef<string>('')
   const {
-    currentSong, isPlaying, volume, playMode, rate,
+    currentSong, isPlaying, volume, playMode, rate, queue,
     togglePlay, next, prev, setVolume, setPlayMode,
     setShowFullPlayer,
   } = usePlayerStore()
@@ -434,6 +436,11 @@ export default function MiniPlayer() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: 220, flexShrink: 0, justifyContent: 'flex-end' }}>
+          <button onClick={() => setShowQueue(true)} title="播放队列"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: 4, position: 'relative' }}>
+            <ListMusic size={16} />
+            {queue.length > 0 && <span style={{ position: 'absolute', top: -2, right: -2, background: 'var(--accent)', color: '#fff', fontSize: 9, padding: '0 4px', borderRadius: 8, fontWeight: 700, lineHeight: '14px' }}>{queue.length}</span>}
+          </button>
           <button onClick={() => setShowEq(true)} title="均衡器"
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: 4 }}>
             <Sliders size={16} />
@@ -453,6 +460,7 @@ export default function MiniPlayer() {
       </div>
 
       <Equalizer show={showEq} onClose={() => setShowEq(false)} />
+      {showQueue && <QueuePanel onClose={() => setShowQueue(false)} />}
     </div>
   )
 }
